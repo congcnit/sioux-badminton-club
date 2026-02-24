@@ -1,0 +1,7 @@
+- Always use TypeScript strict mode
+- Use Server Actions instead of API routes when possible
+- Use Prisma for database
+- Use shadcn UI
+- Avoid any type
+- Write clean and reusable components
+- Mobile responsive first
