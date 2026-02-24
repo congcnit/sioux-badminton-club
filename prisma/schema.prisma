@@ -1,0 +1,369 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  email         String    @unique
+  name          String?
+  password      String?
+  image         String?
+  role          Role      @default(MEMBER)
+  emailVerified DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  memberProfile Member?
+  sessions      Session[]
+  accounts      Account[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(auto()) @map("_id") @db.ObjectId
+  userId            String  @db.ObjectId
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  sessionToken String   @unique
+  userId       String   @db.ObjectId
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model VerificationToken {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model Member {
+  id          String       @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String       @unique @db.ObjectId
+  memberCode  String       @unique
+  phone       String?
+  dateOfBirth DateTime?
+  gender      Gender?
+  joinDate    DateTime     @default(now())
+  status      MemberStatus @default(ACTIVE)
+  notes       String?
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attendances Attendance[]
+  sessionAttendances SessionAttendance[]
+  ratingChanges RatingChange[]
+  challengesMade Challenge[] @relation("ChallengeChallenger")
+  challengesReceived Challenge[] @relation("ChallengeChallenged")
+  rankings    Ranking[]
+
+  @@index([status])
+  @@map("members")
+}
+
+model BadmintonSession {
+  id          String            @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  sessionDate DateTime
+  startTime   DateTime?
+  endTime     DateTime?
+  courtId     String?           @db.ObjectId
+  notes       String?
+  status      SessionStatus     @default(SCHEDULED)
+  createdBy   String?           @db.ObjectId
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  court       Court?            @relation(fields: [courtId], references: [id], onDelete: SetNull)
+  attendances SessionAttendance[]
+  budgetTransactions BudgetTransaction[]
+
+  @@index([courtId])
+  @@index([sessionDate])
+  @@index([status, sessionDate])
+  @@map("badminton_sessions")
+}
+
+model SessionAttendance {
+  id          String           @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId   String           @db.ObjectId
+  memberId    String           @db.ObjectId
+  status      SessionAttendanceStatus @default(PRESENT)
+  fineAmount  Float?
+  note        String?
+  markedAt    DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  session BadmintonSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  member  Member           @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, memberId])
+  @@index([memberId, markedAt])
+  @@index([sessionId, status])
+  @@map("session_attendances")
+}
+
+model Attendance {
+  id       String   @id @default(auto()) @map("_id") @db.ObjectId
+  memberId String   @db.ObjectId
+  date     DateTime @default(now())
+  checkIn  DateTime?
+  checkOut DateTime?
+  notes    String?
+
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([memberId, date])
+  @@index([date])
+  @@map("attendances")
+}
+
+model MonthlyBudget {
+  id              String              @id @default(auto()) @map("_id") @db.ObjectId
+  month           Int
+  year            Int
+  totalAmount     Float               @default(2000000)
+  spentAmount     Float               @default(0)
+  remainingAmount Float               @default(2000000)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  transactions BudgetTransaction[]
+
+  @@unique([year, month])
+  @@map("monthly_budgets")
+}
+
+model BudgetTransaction {
+  id              String             @id @default(auto()) @map("_id") @db.ObjectId
+  monthlyBudgetId String             @db.ObjectId
+  amount          Float
+  category        BudgetCategoryType
+  description     String?
+  date            DateTime           @default(now())
+  sessionId       String?            @db.ObjectId
+  createdBy       String             @db.ObjectId
+
+  monthlyBudget MonthlyBudget    @relation(fields: [monthlyBudgetId], references: [id], onDelete: Cascade)
+  session       BadmintonSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  @@index([monthlyBudgetId, date])
+  @@index([date])
+  @@index([category, date])
+  @@map("budget_transactions")
+}
+
+model FundTransaction {
+  id          String                   @id @default(auto()) @map("_id") @db.ObjectId
+  type        FundTransactionType
+  category    FundTransactionCategory
+  status      FundTransactionStatus    @default(PENDING)
+  amount      Float
+  description String?
+  date        DateTime                 @default(now())
+  createdBy   String                   @db.ObjectId
+
+  @@index([type, date])
+  @@index([status, date])
+  @@index([date])
+  @@map("fund_transactions")
+}
+
+model Ranking {
+  id          String         @id @default(auto()) @map("_id") @db.ObjectId
+  memberId    String         @db.ObjectId
+  category    RankingCategory @default(MENS_SINGLES)
+  score       Float          @default(0)
+  wins        Int            @default(0)
+  losses      Int            @default(0)
+  matches     Int            @default(0)
+  lastUpdated DateTime       @default(now()) @updatedAt
+
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, category])
+  @@index([category, score])
+  @@map("rankings")
+}
+
+model Match {
+  id        String         @id @default(auto()) @map("_id") @db.ObjectId
+  player1Id String         @db.ObjectId
+  player2Id String         @db.ObjectId
+  winnerId  String         @db.ObjectId
+  category  RankingCategory @default(MENS_SINGLES)
+  scoreLine String?
+  date      DateTime       @default(now())
+  notes     String?
+  createdBy String?        @db.ObjectId
+
+  ratingChanges RatingChange[]
+  challenge     Challenge?
+
+  @@index([player1Id, date])
+  @@index([player2Id, date])
+  @@index([date])
+  @@index([category, date])
+  @@map("matches")
+}
+
+model Challenge {
+  id            String          @id @default(auto()) @map("_id") @db.ObjectId
+  challengerId  String          @db.ObjectId
+  challengedId  String          @db.ObjectId
+  category      RankingCategory @default(MENS_SINGLES)
+  status        ChallengeStatus @default(PENDING)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  respondedAt   DateTime?
+  completedAt   DateTime?
+  matchId       String?         @unique @db.ObjectId
+
+  challenger Member @relation("ChallengeChallenger", fields: [challengerId], references: [id], onDelete: Cascade)
+  challenged Member @relation("ChallengeChallenged", fields: [challengedId], references: [id], onDelete: Cascade)
+  match      Match?  @relation(fields: [matchId], references: [id], onDelete: SetNull)
+
+  @@index([challengerId, createdAt])
+  @@index([challengedId, status])
+  @@index([status, createdAt])
+  @@index([category, status])
+  @@map("challenges")
+}
+
+model RatingChange {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  matchId       String   @db.ObjectId
+  memberId      String   @db.ObjectId
+  oldRating     Float
+  expectedScore Float
+  actualScore   Float
+  ratingChange  Float
+  newRating     Float
+  createdAt     DateTime @default(now())
+
+  match  Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([matchId, memberId])
+  @@index([memberId, createdAt])
+  @@index([matchId])
+  @@map("rating_changes")
+}
+
+model Court {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  name         String   @unique
+  locationLink String?
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sessions     BadmintonSession[]
+
+  @@map("courts")
+}
+
+enum Role {
+  ADMIN
+  MEMBER
+  COACH
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum MemberStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum BudgetCategoryType {
+  COURT
+  SHUTTLECOCK
+  OTHER
+}
+
+enum FundTransactionType {
+  INCOME
+  EXPENSE
+}
+
+enum FundTransactionCategory {
+  DONATION
+  FINE
+  GUEST_FEE
+  COURT
+  SHUTTLECOCK
+  ACTIVITY
+  OTHER
+}
+
+enum FundTransactionStatus {
+  PENDING
+  COMPLETED
+}
+
+enum SessionStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+enum SessionAttendanceStatus {
+  PRESENT
+  LATE
+  EXCUSED_ABSENCE
+  UNEXCUSED_ABSENCE
+  REGISTERED
+}
+
+enum ChallengeStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  COMPLETED
+}
+
+enum RankingCategory {
+  MENS_SINGLES
+  WOMENS_SINGLES
+}
