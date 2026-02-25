@@ -305,7 +305,7 @@ export function BudgetManagement({
             <Input id="date" name="date" type="date" defaultValue={todayInputValue()} />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="sessionId">Session (Optional)</Label>
+            <Label htmlFor="sessionId">Session</Label>
             <select
               id="sessionId"
               name="sessionId"

@@ -82,6 +82,13 @@ Club management web app built with:
    - Run `db:seed` once in production if you need the initial admin user (or create users via your own process).
    - For MongoDB Atlas, allow the deployment host IP in the network access list (or use VPC peering if applicable).
 
+### Deploying to Vercel (MongoDB Atlas)
+
+Vercel uses dynamic IPs, so Atlas must allow connections from anywhere:
+
+- In **MongoDB Atlas** → **Network Access** → **Add IP Address** → choose **Allow Access From Anywhere** (`0.0.0.0/0`).
+- Without this, you may see "Server selection timeout" or "fatal alert: InternalError" when signing in or loading data on the deployed app.
+
 ## Seed a user
 
 1. Ensure `.env` includes:

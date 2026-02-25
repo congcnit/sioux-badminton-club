@@ -18,31 +18,39 @@ export default function LoginPage() {
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (isPending) return;
     setError(null);
     setIsPending(true);
 
-    const result = await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
-    });
+    try {
+      const result = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+      });
 
-    setIsPending(false);
+      if (result?.error) {
+        setError("Invalid credentials.");
+        toast.error("Invalid credentials. Please try again.");
+        return;
+      }
 
-    if (result?.error) {
-      setError("Invalid credentials.");
-      toast.error("Invalid credentials. Please try again.");
-      return;
+      toast.success("Welcome back!");
+      router.push("/");
+      router.refresh();
+    } finally {
+      setIsPending(false);
     }
-
-    toast.success("Welcome back!");
-    router.push("/");
-    router.refresh();
   };
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md items-center px-4 py-16 sm:px-6">
-      <form onSubmit={onSubmit} className="w-full space-y-5 rounded-xl border bg-card p-6 shadow-sm">
+      <form
+        onSubmit={onSubmit}
+        className="w-full space-y-5 rounded-xl border bg-card p-6 shadow-sm transition-opacity data-[busy]:opacity-80"
+        aria-busy={isPending}
+        data-busy={isPending ? "" : undefined}
+      >
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Login</h1>
         <div className="space-y-1">
           <Label htmlFor="email" className="text-sm">
@@ -54,6 +62,8 @@ export default function LoginPage() {
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             required
+            disabled={isPending}
+            aria-disabled={isPending}
           />
         </div>
         <div className="space-y-1">
@@ -66,6 +76,8 @@ export default function LoginPage() {
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             required
+            disabled={isPending}
+            aria-disabled={isPending}
           />
         </div>
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
@@ -73,10 +85,11 @@ export default function LoginPage() {
           type="submit"
           disabled={isPending}
           className="w-full"
+          aria-busy={isPending}
         >
           {isPending ? (
             <>
-              <Loader2 className="size-4 animate-spin" /> Signing in...
+              <Loader2 className="size-4 animate-spin" aria-hidden /> Signing in…
             </>
           ) : (
             "Sign in"
