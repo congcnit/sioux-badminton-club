@@ -202,21 +202,22 @@ function AttendanceEditableRow({
   attendee: SessionListItem["attendees"][number];
 }) {
   const formId = useId();
-  const [state, action] = useActionState(markAttendanceAction, initialInlineState);
+  const [state, action, isPending] = useActionState(markAttendanceAction, initialInlineState);
   useActionToast(state, {
     successPrefix: "Attendance updated",
     errorPrefix: "Unable to update attendance",
   });
 
   return (
-    <TableRow>
+    <TableRow className={isPending ? "opacity-70" : undefined}>
       <TableCell>{attendee.memberName}</TableCell>
       <TableCell>
         <select
           name="status"
           form={formId}
           defaultValue={attendee.status}
-          className="border-input bg-transparent h-9 w-full rounded-md border px-3 text-sm"
+          disabled={isPending}
+          className="border-input bg-transparent h-9 w-full rounded-md border px-3 text-sm disabled:cursor-not-allowed disabled:opacity-70"
         >
           {statuses.map((value) => (
             <option key={value} value={value}>
@@ -232,6 +233,7 @@ function AttendanceEditableRow({
           type="number"
           min={0}
           defaultValue={attendee.fineAmount ?? ""}
+          disabled={isPending}
         />
       </TableCell>
       <TableCell>
@@ -240,14 +242,21 @@ function AttendanceEditableRow({
           form={formId}
           placeholder="Optional note"
           defaultValue={attendee.note ?? ""}
+          disabled={isPending}
         />
       </TableCell>
       <TableCell>
         <form id={formId} action={action} className="flex items-center gap-2">
           <input type="hidden" name="sessionId" value={sessionId} />
           <input type="hidden" name="memberId" value={attendee.memberId} />
-          <Button type="submit" size="sm">
-            Save
+          <Button type="submit" size="sm" disabled={isPending} aria-busy={isPending}>
+            {isPending ? (
+              <>
+                <Loader2 className="size-4 animate-spin" aria-hidden /> Saving…
+              </>
+            ) : (
+              "Save"
+            )}
           </Button>
         </form>
       </TableCell>
@@ -269,7 +278,7 @@ function SessionEditDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const formId = useId();
-  const [state, action] = useActionState(updateSessionAction, initialState);
+  const [state, action, isPending] = useActionState(updateSessionAction, initialState);
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
 
   useActionToast(state, {
@@ -310,6 +319,7 @@ function SessionEditDialog({
         </AlertDialogHeader>
         <form id={formId} action={action} className="space-y-4">
           <input type="hidden" name="sessionId" value={session.id} />
+          <fieldset disabled={isPending} className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
               <Label htmlFor="edit-session-date">
@@ -388,7 +398,7 @@ function SessionEditDialog({
               />
             </div>
             <div className="space-y-2 sm:col-span-2">
-              <Label>Members (optional)</Label>
+              <Label>Members</Label>
               <div className="grid max-h-40 gap-2 overflow-y-auto rounded-md border p-3 sm:grid-cols-2">
                 {members.map((member) => (
                   <label
@@ -412,13 +422,22 @@ function SessionEditDialog({
               ) : null}
             </div>
           </div>
+          </fieldset>
           {state.message && !state.success ? (
             <p className="text-sm text-destructive">{state.message}</p>
           ) : null}
           <AlertDialogFooter>
-            <AlertDialogCancel type="button">Cancel</AlertDialogCancel>
-            <Button type="submit" form={formId}>
-              Save changes
+            <AlertDialogCancel type="button" disabled={isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <Button type="submit" form={formId} disabled={isPending} aria-busy={isPending}>
+              {isPending ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" aria-hidden /> Saving…
+                </>
+              ) : (
+                "Save changes"
+              )}
             </Button>
           </AlertDialogFooter>
         </form>
@@ -462,12 +481,12 @@ export function AttendanceManagement({
   const [joinSessionId, setJoinSessionId] = useState<string | null>(null);
   const [joinNote, setJoinNote] = useState("");
 
-  const [state, createSessionFormAction] = useActionState(
+  const [state, createSessionFormAction, createSessionPending] = useActionState(
     createSessionAction,
     initialState,
   );
-  const [joinState, joinAction] = useActionState(joinSessionAction, initialJoinState);
-  const [deleteState, deleteAction] = useActionState(
+  const [joinState, joinAction, joinPending] = useActionState(joinSessionAction, initialJoinState);
+  const [deleteState, deleteAction, deletePending] = useActionState(
     deleteSessionAction,
     initialDeleteState,
   );
@@ -536,6 +555,8 @@ export function AttendanceManagement({
       {canManage ? (
         <SportCard variant="gradient" className="p-5">
           <form action={createSessionFormAction} className="space-y-4">
+          <fieldset disabled={createSessionPending} className="space-y-4">
+          <legend className="sr-only">Create session</legend>
           <h2 className="text-lg font-medium">Create session</h2>
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-1">
@@ -651,10 +672,24 @@ export function AttendanceManagement({
             ) : null}
           </div>
           </div>
+          </fieldset>
           {state.message && !state.success ? (
             <p className="text-sm text-destructive">{state.message}</p>
           ) : null}
-          <Button type="submit" variant="sport">Create session</Button>
+          <Button
+            type="submit"
+            variant="sport"
+            disabled={createSessionPending}
+            aria-busy={createSessionPending}
+          >
+            {createSessionPending ? (
+              <>
+                <Loader2 className="size-4 animate-spin" aria-hidden /> Creating…
+              </>
+            ) : (
+              "Create session"
+            )}
+          </Button>
         </form>
         </SportCard>
       ) : null}
@@ -693,20 +728,31 @@ export function AttendanceManagement({
               </AlertDialogHeader>
               <input type="hidden" name="sessionId" value={joinSessionId ?? ""} />
               <div className="space-y-2 py-2">
-                <Label htmlFor="join-note">Note (optional)</Label>
+                <Label htmlFor="join-note">Note</Label>
                 <textarea
                   id="join-note"
                   name="note"
                   value={joinNote}
                   onChange={(e) => setJoinNote(e.target.value)}
                   placeholder="e.g. expected arrival time"
+                  disabled={joinPending}
                   className="border-input bg-background flex min-h-[80px] w-full rounded-md border px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   maxLength={300}
                 />
               </div>
               <AlertDialogFooter>
-                <AlertDialogCancel type="button">Cancel</AlertDialogCancel>
-                <Button type="submit">Confirm</Button>
+                <AlertDialogCancel type="button" disabled={joinPending}>
+                  Cancel
+                </AlertDialogCancel>
+                <Button type="submit" disabled={joinPending} aria-busy={joinPending}>
+                  {joinPending ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" aria-hidden /> Joining…
+                    </>
+                  ) : (
+                    "Confirm"
+                  )}
+                </Button>
               </AlertDialogFooter>
             </form>
           </AlertDialogContent>
@@ -784,11 +830,24 @@ export function AttendanceManagement({
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogCancel disabled={deletePending}>Cancel</AlertDialogCancel>
                       <AlertDialogAction asChild variant="destructive">
                         <form action={deleteAction}>
                           <input type="hidden" name="sessionId" value={session.id} />
-                          <button type="submit">Delete</button>
+                          <button
+                            type="submit"
+                            disabled={deletePending}
+                            aria-busy={deletePending}
+                            className="inline-flex items-center justify-center gap-2"
+                          >
+                            {deletePending ? (
+                              <>
+                                <Loader2 className="size-4 animate-spin" aria-hidden /> Deleting…
+                              </>
+                            ) : (
+                              "Delete"
+                            )}
+                          </button>
                         </form>
                       </AlertDialogAction>
                     </AlertDialogFooter>
