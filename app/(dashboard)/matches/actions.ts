@@ -60,8 +60,7 @@ export async function createMatchAction(
     });
   });
 
-  revalidatePath("/rankings");
-  revalidatePath("/rankings");
+  revalidatePath("/arena");
   revalidatePath("/matches");
   revalidatePath("/matches/new");
   revalidatePath("/");

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useActionState } from "react";
 import { BudgetCategoryType } from "@prisma/client";
 
@@ -165,6 +165,7 @@ export function BudgetManagement({
   summary,
 }: BudgetManagementProps) {
   const router = useRouter();
+  const [deleteDialogTransactionId, setDeleteDialogTransactionId] = useState<string | null>(null);
   const [createState, createAction] = useActionState(createExpenseAction, initialState);
   const [updateState, updateAction] = useActionState(updateExpenseAction, initialState);
   const [deleteState, deleteAction] = useActionState(deleteExpenseAction, initialState);
@@ -189,7 +190,10 @@ export function BudgetManagement({
     if (updateState.success && updateState.toastKey) router.refresh();
   }, [updateState.success, updateState.toastKey, router]);
   useEffect(() => {
-    if (deleteState.success && deleteState.toastKey) router.refresh();
+    if (deleteState.success && deleteState.toastKey) {
+      router.refresh();
+      setDeleteDialogTransactionId(null);
+    }
   }, [deleteState.success, deleteState.toastKey, router]);
   const isOverBudget = selectedBudget.remainingAmount < 0;
   const utilization =
@@ -357,7 +361,7 @@ export function BudgetManagement({
               <TableHead>Category</TableHead>
               <TableHead>Description</TableHead>
               <TableHead>Session</TableHead>
-              <TableHead>Amount</TableHead>
+              <TableHead className="text-right">Amount</TableHead>
               {canManage ? <TableHead>Actions</TableHead> : null}
             </TableRow>
           </TableHeader>
@@ -414,13 +418,14 @@ export function BudgetManagement({
                       ))}
                     </select>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="text-right font-semibold tabular-nums">
                     <Input
                       form={`update-expense-${tx.id}`}
                       name="amount"
                       type="number"
                       min={1}
                       defaultValue={Math.round(tx.amount)}
+                      className="w-28 text-right font-semibold"
                     />
                   </TableCell>
                   <TableCell>
@@ -431,13 +436,26 @@ export function BudgetManagement({
                           Save
                         </Button>
                       </form>
-                      <AlertDialog>
+                      <AlertDialog
+                        open={deleteDialogTransactionId === tx.id}
+                        onOpenChange={(open) => {
+                          if (!open) setDeleteDialogTransactionId(null);
+                        }}
+                      >
                         <AlertDialogTrigger asChild>
-                          <Button size="sm" variant="destructive" type="button">
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            type="button"
+                            onClick={() => setDeleteDialogTransactionId(tx.id)}
+                          >
                             Delete
                           </Button>
                         </AlertDialogTrigger>
-                        <AlertDialogContent size="sm">
+                        <AlertDialogContent
+                          size="sm"
+                          onOverlayClick={() => setDeleteDialogTransactionId(null)}
+                        >
                           <AlertDialogHeader>
                             <AlertDialogTitle>Delete transaction?</AlertDialogTitle>
                             <AlertDialogDescription>
@@ -474,7 +492,9 @@ export function BudgetManagement({
                   </TableCell>
                   <TableCell>{tx.description ?? "-"}</TableCell>
                   <TableCell>{tx.sessionTitle ?? "-"}</TableCell>
-                  <TableCell>{formatVnd(tx.amount)}</TableCell>
+                  <TableCell className="text-right font-semibold tabular-nums">
+                    {formatVnd(tx.amount)}
+                  </TableCell>
                 </TableRow>
               ),
             )}

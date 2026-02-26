@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -8,6 +9,7 @@ import { cn } from "@/lib/utils";
 type NavItem = {
   href: string;
   label: string;
+  icon?: string;
 };
 
 type DashboardNavProps = {
@@ -32,13 +34,23 @@ export function DashboardNav({ items }: DashboardNavProps) {
             href={item.href}
             aria-current={isActive ? "page" : undefined}
             className={cn(
-              "relative rounded-lg border px-3 py-2 text-sm font-medium transition-all duration-200",
+              "relative flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-all duration-200",
               "hover:shadow-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
               isActive
                 ? "border-accent/50 bg-accent/15 text-accent shadow-sm"
                 : "border-border/60 bg-card/50 text-muted-foreground hover:border-accent/30 hover:bg-muted/40 hover:text-foreground",
             )}
           >
+            {item.icon ? (
+              <Image
+                src={item.icon}
+                alt=""
+                width={20}
+                height={20}
+                className="size-5 shrink-0 object-contain"
+                unoptimized
+              />
+            ) : null}
             {item.label}
           </Link>
         );

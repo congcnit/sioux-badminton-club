@@ -91,6 +91,8 @@ model Member {
   challengesMade Challenge[] @relation("ChallengeChallenger")
   challengesReceived Challenge[] @relation("ChallengeChallenged")
   rankings    Ranking[]
+  arenaParticipants ArenaParticipant[]
+  arenaHistoricalRankings ArenaHistoricalRanking[]
 
   @@index([status])
   @@map("members")
@@ -366,4 +368,109 @@ enum ChallengeStatus {
 enum RankingCategory {
   MENS_SINGLES
   WOMENS_SINGLES
+}
+
+// Arena: monthly competition events (replaces Rankings as primary module)
+enum ArenaCategory {
+  MEN
+  WOMEN
+}
+
+enum ArenaEventStatus {
+  SCHEDULED
+  ACTIVE
+  COMPLETED
+}
+
+enum ArenaMatchStatus {
+  SCHEDULED
+  COMPLETED
+}
+
+model ArenaEvent {
+  id                    String           @id @default(auto()) @map("_id") @db.ObjectId
+  date                  DateTime
+  month                 Int
+  year                  Int
+  category              ArenaCategory
+  minSessionsRequired   Int
+  /** Max rank difference allowed for a challenge (e.g. 2 = within 2 positions). */
+  maxRankDiff           Int              @default(2)
+  status                ArenaEventStatus @default(SCHEDULED)
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+
+  participants ArenaParticipant[]
+  matches      ArenaMatch[]
+
+  @@index([year, month])
+  @@index([category, status])
+  @@map("arena_events")
+}
+
+model ArenaParticipant {
+  id                      String      @id @default(auto()) @map("_id") @db.ObjectId
+  arenaEventId            String      @db.ObjectId
+  memberId                String      @db.ObjectId
+  points                  Int         @default(1000)
+  rank                    Int?
+  challengesRemaining     Int         @default(2)
+  wins                    Int         @default(0)
+  losses                  Int         @default(0)
+  scoreFor                Int         @default(0)
+  scoreAgainst            Int         @default(0)
+  monthlyParticipationCount Int       @default(0)
+  yearlyParticipationCount  Int       @default(0)
+  createdAt               DateTime    @default(now())
+  updatedAt               DateTime    @updatedAt
+
+  arenaEvent    ArenaEvent  @relation(fields: [arenaEventId], references: [id], onDelete: Cascade)
+  member        Member      @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  matchesAsChallenger ArenaMatch[] @relation("ArenaMatchChallenger")
+  matchesAsOpponent   ArenaMatch[] @relation("ArenaMatchOpponent")
+
+  @@unique([arenaEventId, memberId])
+  @@index([arenaEventId])
+  @@index([memberId])
+  @@map("arena_participants")
+}
+
+model ArenaMatch {
+  id                      String            @id @default(auto()) @map("_id") @db.ObjectId
+  arenaEventId            String            @db.ObjectId
+  challengerId            String            @db.ObjectId
+  opponentId              String            @db.ObjectId
+  status                  ArenaMatchStatus  @default(COMPLETED)
+  challengerScore         Int?
+  opponentScore           Int?
+  rankDiff                Int?
+  challengerRankAtMatch   Int?
+  opponentRankAtMatch     Int?
+  challengerPointsAtMatch Int?
+  opponentPointsAtMatch   Int?
+  challengerPointsChange  Int?
+  opponentPointsChange    Int?
+  createdAt               DateTime          @default(now())
+
+  arenaEvent ArenaEvent    @relation(fields: [arenaEventId], references: [id], onDelete: Cascade)
+  challenger ArenaParticipant @relation("ArenaMatchChallenger", fields: [challengerId], references: [id], onDelete: Cascade)
+  opponent   ArenaParticipant @relation("ArenaMatchOpponent", fields: [opponentId], references: [id], onDelete: Cascade)
+
+  @@unique([challengerId, opponentId])
+  @@index([arenaEventId])
+  @@index([arenaEventId, status])
+  @@map("arena_matches")
+}
+
+model ArenaHistoricalRanking {
+  id        String @id @default(auto()) @map("_id") @db.ObjectId
+  memberId  String @db.ObjectId
+  rank      Int
+  count     Int    @default(1)
+
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, rank])
+  @@index([memberId])
+  @@map("arena_historical_rankings")
 }

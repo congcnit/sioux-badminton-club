@@ -25,11 +25,15 @@ export function ClubRulesModal({ open, onOpenChange, onClose }: ClubRulesModalPr
 
   return (
     <AlertDialog open={open} onOpenChange={handleOpenChange}>
-      <AlertDialogContent size="xl" className="max-h-[90vh] overflow-y-auto">
-        <AlertDialogHeader>
+      <AlertDialogContent
+        size="xl"
+        className="flex min-w-[400px] max-h-[90vh] flex-col"
+        onOverlayClick={() => handleOpenChange(false)}
+      >
+        <AlertDialogHeader className="shrink-0">
           <AlertDialogTitle className="flex items-center gap-2 text-xl">
             <span aria-hidden>🏸</span>
-            Badminton Club Rules & Information
+            Club Rules & Information
           </AlertDialogTitle>
           <AlertDialogDescription asChild>
             <div className="sr-only">
@@ -37,10 +41,10 @@ export function ClubRulesModal({ open, onOpenChange, onClose }: ClubRulesModalPr
             </div>
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <div className="py-2">
+        <div className="min-h-0 flex-1 overflow-y-auto py-2">
           <ClubRulesContent />
         </div>
-        <AlertDialogFooter>
+        <AlertDialogFooter className="shrink-0 border-t border-border pt-4">
           <AlertDialogCancel>Close</AlertDialogCancel>
         </AlertDialogFooter>
       </AlertDialogContent>

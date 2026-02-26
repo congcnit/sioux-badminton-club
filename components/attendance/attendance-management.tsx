@@ -310,7 +310,10 @@ function SessionEditDialog({
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <AlertDialogContent
+        className="max-w-2xl max-h-[90vh] overflow-y-auto"
+        onOverlayClick={() => onOpenChange(false)}
+      >
         <AlertDialogHeader>
           <AlertDialogTitle>Edit session</AlertDialogTitle>
           <AlertDialogDescription>
@@ -480,6 +483,7 @@ export function AttendanceManagement({
   const [joinModalOpen, setJoinModalOpen] = useState(false);
   const [joinSessionId, setJoinSessionId] = useState<string | null>(null);
   const [joinNote, setJoinNote] = useState("");
+  const [deleteDialogSessionId, setDeleteDialogSessionId] = useState<string | null>(null);
 
   const [state, createSessionFormAction, createSessionPending] = useActionState(
     createSessionAction,
@@ -516,7 +520,10 @@ export function AttendanceManagement({
     }
   }, [joinState.success, joinState.toastKey, router]);
   useEffect(() => {
-    if (deleteState.success && deleteState.toastKey) router.refresh();
+    if (deleteState.success && deleteState.toastKey) {
+      router.refresh();
+      setDeleteDialogSessionId(null);
+    }
   }, [deleteState.success, deleteState.toastKey, router]);
 
   function toggleMember(memberId: string, checked: boolean) {
@@ -718,7 +725,14 @@ export function AttendanceManagement({
             }
           }}
         >
-          <AlertDialogContent size="sm">
+          <AlertDialogContent
+            size="sm"
+            onOverlayClick={() => {
+              setJoinModalOpen(false);
+              setJoinSessionId(null);
+              setJoinNote("");
+            }}
+          >
             <form action={joinAction}>
               <AlertDialogHeader>
                 <AlertDialogTitle>Join this session?</AlertDialogTitle>
@@ -785,6 +799,8 @@ export function AttendanceManagement({
                 <span className="text-muted-foreground">Note:</span> {session.notes?.trim() ? session.notes : "-"}
               </p>
             </div>
+            <div className="flex flex-shrink-0 items-center gap-2">
+              <span className="text-muted-foreground text-sm"># attendees: {session.attendees.length}</span>
             {!canManage &&
             session.status === SessionStatus.SCHEDULED &&
             currentMemberId != null &&
@@ -804,7 +820,7 @@ export function AttendanceManagement({
               </Button>
             ) : null}
             {canManage ? (
-              <div className="flex items-center gap-2">
+              <>
                 <Button
                   type="button"
                   size="sm"
@@ -816,13 +832,26 @@ export function AttendanceManagement({
                 >
                   Edit Session
                 </Button>
-                <AlertDialog>
+                <AlertDialog
+                  open={deleteDialogSessionId === session.id}
+                  onOpenChange={(open) => {
+                    if (!open) setDeleteDialogSessionId(null);
+                  }}
+                >
                   <AlertDialogTrigger asChild>
-                    <Button type="button" size="sm" variant="destructive">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => setDeleteDialogSessionId(session.id)}
+                    >
                       Delete Session
                     </Button>
                   </AlertDialogTrigger>
-                  <AlertDialogContent size="sm">
+                  <AlertDialogContent
+                    size="sm"
+                    onOverlayClick={() => setDeleteDialogSessionId(null)}
+                  >
                     <AlertDialogHeader>
                       <AlertDialogTitle>Delete this session?</AlertDialogTitle>
                       <AlertDialogDescription>
@@ -853,8 +882,9 @@ export function AttendanceManagement({
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
-              </div>
+              </>
             ) : null}
+            </div>
           </div>
 
           <Table>

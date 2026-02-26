@@ -1,23 +1,11 @@
 "use client";
 
-import { useState } from "react";
 import Image from "next/image";
-
-import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 
 /**
  * Static club rules content. Edit here when rules change, then bump CLUB_RULES_VERSION in lib/club-rules.ts.
  */
 export function ClubRulesContent() {
-  const [qrZoomOpen, setQrZoomOpen] = useState(false);
-
   return (
     <div className="space-y-6 text-sm text-foreground">
       <section>
@@ -77,43 +65,15 @@ export function ClubRulesContent() {
         <p className="text-muted-foreground">
           Please scan the QR code below to transfer money to the club fund.
         </p>
-        <div className="mt-3">
-          <button
-            type="button"
-            onClick={() => setQrZoomOpen(true)}
-            className="focus-visible:ring-ring inline-flex rounded-lg border border-border outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-            aria-label="Open QR code in larger view for scanning"
-          >
-            <Image
-              src="/payment-qr.jpg"
-              alt="QR code for club fund transfer"
-              width={200}
-              height={200}
-              className="cursor-pointer rounded-lg object-contain transition-opacity hover:opacity-90"
-              unoptimized
-            />
-          </button>
-          <p className="mt-1 text-xs text-muted-foreground">Click to enlarge for easier scanning</p>
-          <AlertDialog open={qrZoomOpen} onOpenChange={setQrZoomOpen}>
-            <AlertDialogContent size="default" className="w-fit max-w-[min(100vw-2rem,28rem)]">
-              <AlertDialogHeader>
-                <AlertDialogTitle>Scan to transfer</AlertDialogTitle>
-              </AlertDialogHeader>
-              <div className="flex justify-center py-2">
-                <Image
-                  src="/payment-qr.jpg"
-                  alt="QR code for club fund transfer"
-                  width={400}
-                  height={400}
-                  className="rounded-lg border border-border object-contain"
-                  unoptimized
-                />
-              </div>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Close</AlertDialogCancel>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+        <div className="mt-3 flex justify-center">
+          <Image
+            src="/payment-qr.jpg"
+            alt="QR code for club fund transfer"
+            width={400}
+            height={400}
+            className="min-w-[400px] max-w-full rounded-lg border border-border object-contain"
+            unoptimized
+          />
         </div>
       </section>
     </div>

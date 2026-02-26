@@ -136,7 +136,7 @@ export function NewMatchForm({ members }: { members: MemberOption[] }) {
       <div className="flex items-center gap-2">
         <Button type="submit">Submit Match</Button>
         <Button asChild type="button" variant="outline">
-          <Link href="/rankings">Back to Rankings</Link>
+          <Link href="/arena">Back to Arena</Link>
         </Button>
       </div>
     </form>

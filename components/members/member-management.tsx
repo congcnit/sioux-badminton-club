@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useRef } from "react";
 import { Gender, MemberStatus } from "@prisma/client";
@@ -38,6 +39,7 @@ type MemberListItem = {
   userId: string;
   userName: string | null;
   userEmail: string;
+  userImage: string | null;
 };
 
 type MemberManagementProps = {
@@ -217,6 +219,7 @@ export function MemberManagement({ members, canManage }: MemberManagementProps) 
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-12" aria-label="Avatar" />
               <TableHead>Name</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Phone</TableHead>
@@ -232,6 +235,18 @@ export function MemberManagement({ members, canManage }: MemberManagementProps) 
               const rowKey = `${member.id}-${member.status}-${member.userName ?? ""}-${member.userEmail}-${member.phone ?? ""}-${dateInputValue(member.dateOfBirth)}-${member.gender ?? ""}-${member.notes ?? ""}`;
               return canManage ? (
                 <TableRow key={rowKey}>
+                  <TableCell className="w-12 align-middle">
+                    {member.userImage ? (
+                      <Image
+                        src={member.userImage}
+                        alt=""
+                        width={32}
+                        height={32}
+                        className="size-8 shrink-0 rounded-full object-cover"
+                        unoptimized
+                      />
+                    ) : null}
+                  </TableCell>
                   <TableCell colSpan={8} className="p-0">
                     <form
                       action={updateFormAction}
@@ -289,6 +304,18 @@ export function MemberManagement({ members, canManage }: MemberManagementProps) 
                 </TableRow>
               ) : (
                 <TableRow key={rowKey}>
+                  <TableCell className="w-12 align-middle">
+                    {member.userImage ? (
+                      <Image
+                        src={member.userImage}
+                        alt=""
+                        width={32}
+                        height={32}
+                        className="size-8 shrink-0 rounded-full object-cover"
+                        unoptimized
+                      />
+                    ) : null}
+                  </TableCell>
                   <TableCell>{member.userName ?? "-"}</TableCell>
                   <TableCell>{member.userEmail}</TableCell>
                   <TableCell>{member.phone ?? "-"}</TableCell>
@@ -317,7 +344,7 @@ export function MemberManagement({ members, canManage }: MemberManagementProps) 
             })}
             {!members.length ? (
               <TableRow>
-                <TableCell colSpan={canManage ? 8 : 7} className="p-4">
+                <TableCell colSpan={canManage ? 9 : 8} className="p-4">
                   <EmptyState
                     title="No members yet"
                     description={
