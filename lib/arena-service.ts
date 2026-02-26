@@ -332,6 +332,10 @@ export async function getEligibleMemberIds(
   const memberIds = members.map((m) => m.id);
   if (memberIds.length === 0) return [];
 
+  // When minSessionsRequired is 0, everyone in the category is eligible. groupBy only
+  // returns members with at least one session, so we must not filter by count in that case.
+  if (input.minSessionsRequired === 0) return memberIds;
+
   const counts = await tx.sessionAttendance.groupBy({
     by: ["memberId"],
     where: {
