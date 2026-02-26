@@ -20,6 +20,10 @@ export const createArenaEventSchema = z.object({
   status: z.nativeEnum(ArenaEventStatus).nullish(),
 });
 
+export const updateArenaEventSchema = z.object({
+  status: z.nativeEnum(ArenaEventStatus).optional(),
+});
+
 export const updateParticipantChallengesSchema = z.object({
   participantId: z.string().min(1, "Participant is required"),
   challengesRemaining: z.coerce.number().int().min(0).max(99),
