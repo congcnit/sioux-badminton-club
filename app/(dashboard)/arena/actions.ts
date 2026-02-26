@@ -1,6 +1,6 @@
 "use server";
 
-import { ArenaCategory, ArenaEventStatus, Role } from "@prisma/client";
+import { ArenaEventStatus, Role } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { revalidatePath } from "next/cache";
 
