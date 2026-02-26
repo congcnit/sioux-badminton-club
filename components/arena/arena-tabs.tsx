@@ -4,26 +4,33 @@ import Link from "next/link";
 
 import { cn } from "@/lib/utils";
 
-type TabValue = "mens" | "womens";
+export type ArenaTabValue = "men" | "women";
 
-const tabs: { value: TabValue; label: string }[] = [
-  { value: "mens", label: "Men's Singles" },
-  { value: "womens", label: "Women's Singles" },
+const tabs: { value: ArenaTabValue; label: string }[] = [
+  { value: "men", label: "Men's" },
+  { value: "women", label: "Women's" },
 ];
 
-export function RankingsTabs({ currentTab }: { currentTab: TabValue }) {
+export function ArenaTabs({
+  currentTab,
+  searchParams,
+}: {
+  currentTab: ArenaTabValue;
+  searchParams: string;
+}) {
   return (
     <nav
       role="tablist"
-      aria-label="Rankings category"
+      aria-label="Arena category"
       className="inline-flex rounded-lg border border-border bg-card p-1 shadow-sm"
     >
       {tabs.map((tab) => {
         const isActive = currentTab === tab.value;
+        const href = `/arena?tab=${tab.value}${searchParams ? `&${searchParams}` : ""}`;
         return (
           <Link
             key={tab.value}
-            href={`/rankings?tab=${tab.value}`}
+            href={href}
             role="tab"
             aria-selected={isActive}
             className={cn(

@@ -6,7 +6,7 @@ import {
   FundTransactionStatus,
   FundTransactionType,
 } from "@prisma/client";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 
 import {
   deleteFundTransactionAction,
@@ -111,6 +111,7 @@ export function FundManagement({
   canManage,
 }: FundManagementProps) {
   const negativeBalance = summary.currentBalance < 0;
+  const [deleteDialogTransactionId, setDeleteDialogTransactionId] = useState<string | null>(null);
   const [updateState, updateAction] = useActionState(updateFundTransactionAction, fundInitialState);
   const [deleteState, deleteAction] = useActionState(deleteFundTransactionAction, fundInitialState);
 
@@ -258,13 +259,26 @@ export function FundManagement({
                       <Button size="sm" type="submit" form={formId}>
                         Save
                       </Button>
-                      <AlertDialog>
+                      <AlertDialog
+                        open={deleteDialogTransactionId === tx.id}
+                        onOpenChange={(open) => {
+                          if (!open) setDeleteDialogTransactionId(null);
+                        }}
+                      >
                         <AlertDialogTrigger asChild>
-                          <Button size="sm" type="button" variant="destructive">
+                          <Button
+                            size="sm"
+                            type="button"
+                            variant="destructive"
+                            onClick={() => setDeleteDialogTransactionId(tx.id)}
+                          >
                             Delete
                           </Button>
                         </AlertDialogTrigger>
-                        <AlertDialogContent size="sm">
+                        <AlertDialogContent
+                          size="sm"
+                          onOverlayClick={() => setDeleteDialogTransactionId(null)}
+                        >
                           <AlertDialogHeader>
                             <AlertDialogTitle>Delete transaction?</AlertDialogTitle>
                             <AlertDialogDescription>

@@ -7,7 +7,7 @@ import { ClubRulesProvider } from "@/components/club-rules/club-rules-context";
 import { ClubRulesTrigger } from "@/components/club-rules/club-rules-trigger";
 import { DashboardNav } from "@/components/layout/dashboard-nav";
 
-type NavItem = { href: string; label: string };
+type NavItem = { href: string; label: string; icon?: string };
 
 type UserInfo = {
   name: string | null;

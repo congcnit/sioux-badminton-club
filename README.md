@@ -10,9 +10,9 @@ Club management web app built with:
 ## Current implementation
 
 - **Auth:** NextAuth credentials, Prisma adapter, JWT session, role-based access (ADMIN / MEMBER / COACH)
-- **Modules:** Members, Sessions & Attendance, Budget (monthly + transactions), Fund (income/expense + category charts), Rankings (Elo + challenges), Courts (admin), Settings (profile + password)
+- **Modules:** Members, Sessions & Attendance, Budget (monthly + transactions), Fund (income/expense + category charts), **Arena** (monthly competition events, points, challenges, leaderboard), Courts (admin), Settings (profile + password)
 - **Club rules:** Modal with schedule, participation rules, guest policy, fund transfer QR; versioned so users see updates
-- **RBAC:** Admin-only mutations for budget, fund, sessions, members, courts, rankings; members have read-only where applicable
+- **RBAC:** Admin-only mutations for budget, fund, sessions, members, courts, arena; members have read-only where applicable
 
 ## Setup
 
@@ -57,7 +57,7 @@ Club management web app built with:
 | `/budget` | Monthly budget (current month); `/budget/[year]/[month]` for a specific month |
 | `/fund` | Club fund (transactions, income/expense by category charts) |
 | `/members` | Member management |
-| `/rankings` | Rankings & challenges (admin only in nav for now) |
+| `/arena` | Arena (monthly competition events, leaderboard, challenges) |
 | `/courts` | Court management (admin only) |
 | `/settings/profile` | Profile settings |
 | `/settings/password` | Change password |

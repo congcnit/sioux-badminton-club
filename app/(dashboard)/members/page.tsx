@@ -27,6 +27,7 @@ export default async function MembersPage() {
     userId: member.user.id,
     userName: member.user.name,
     userEmail: member.user.email,
+    userImage: member.user.image,
   }));
 
   return <MemberManagement members={listItems} canManage={isAdmin} />;

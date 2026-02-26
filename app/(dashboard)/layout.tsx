@@ -11,7 +11,7 @@ const baseNavigation = [
   { href: "/budget", label: "Budget" },
   { href: "/fund", label: "Fund" },
   { href: "/members", label: "Members" },
-  { href: "/rankings", label: "Rankings" },
+  { href: "/arena", label: "Arena" },
 ];
 
 export default async function DashboardLayout({
@@ -22,12 +22,9 @@ export default async function DashboardLayout({
     redirect("/login");
   }
   const isAdmin = session.user.role === Role.ADMIN;
-  const navItems = isAdmin
-    ? baseNavigation
-    : baseNavigation.filter((item) => item.href !== "/rankings");
   const navigation = isAdmin
-    ? [...navItems, { href: "/courts", label: "Courts" }]
-    : navItems;
+    ? [...baseNavigation, { href: "/courts", label: "Courts" }]
+    : baseNavigation;
   const currentUser = await db.user.findUnique({
     where: { id: session.user.id },
     select: { name: true, email: true, image: true },

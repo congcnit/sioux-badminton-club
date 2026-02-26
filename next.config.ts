@@ -8,6 +8,15 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: configDir,
   },
+  async redirects() {
+    return [
+      {
+        source: "/rankings",
+        destination: "/arena",
+        permanent: false,
+      },
+    ];
+  },
 };
 
 export default nextConfig;
