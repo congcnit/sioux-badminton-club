@@ -1,6 +1,6 @@
 "use server";
 
-import { ArenaEventStatus, Role } from "@prisma/client";
+import { ArenaEventStatus, Prisma, Role } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { revalidatePath } from "next/cache";
 
@@ -16,7 +16,6 @@ import {
 } from "@/lib/arena-service";
 import {
   createArenaEventSchema,
-  updateParticipantChallengesSchema,
   createScheduledArenaMatchSchema,
   challengeOpponentSchema,
   completeArenaMatchSchema,
@@ -68,16 +67,14 @@ export async function createArenaEventAction(
   }
 
   try {
-    const result = await db.$transaction(async (tx) =>
-      createArenaEventWithParticipants(tx, {
-        date: new Date(parsed.data.date),
-        category: parsed.data.category,
-        minSessionsRequired: parsed.data.minSessionsRequired,
-        challengesPerParticipant: parsed.data.challengesPerParticipant,
-        maxRankDiff: parsed.data.maxRankDiff,
-        status: parsed.data.status ?? undefined,
-      }),
-    );
+    const result = await createArenaEventWithParticipants(db, {
+      date: new Date(parsed.data.date),
+      category: parsed.data.category,
+      minSessionsRequired: parsed.data.minSessionsRequired,
+      challengesPerParticipant: parsed.data.challengesPerParticipant,
+      maxRankDiff: parsed.data.maxRankDiff,
+      status: parsed.data.status ?? undefined,
+    });
     revalidatePath(ARENA_PATH);
     const n = result.participantCount;
     return {
@@ -90,7 +87,18 @@ export async function createArenaEventAction(
       toastKey: Date.now(),
     };
   } catch (e) {
-    console.error("Create arena event error:", e);
+    const err = e instanceof Error ? e : new Error(String(e));
+    const errDetail =
+      err instanceof Error ? `${err.name}: ${err.message}` : String(e);
+    const prismaExtra =
+      e instanceof Prisma.PrismaClientKnownRequestError
+        ? ` [Prisma ${e.code}] ${JSON.stringify(e.meta ?? {})}`
+        : "";
+    console.error(
+      "Create arena event error:",
+      errDetail + prismaExtra,
+      err instanceof Error ? err.stack : "",
+    );
     return {
       success: false,
       message: "Failed to create arena event. Check that eligible members exist.",
@@ -321,45 +329,6 @@ export async function completeArenaMatchAction(
   }
   revalidatePath(ARENA_PATH, "page");
   return { success: true, message: "Result recorded and rankings updated.", toastKey: Date.now() };
-}
-
-export async function updateParticipantChallengesAction(
-  _prevState: ArenaActionState,
-  formData: FormData,
-): Promise<ArenaActionState> {
-  const session = await assertAdmin();
-  if (!session) {
-    return { success: false, message: "Only admin can update challenges remaining.", toastKey: Date.now() };
-  }
-
-  const parsed = updateParticipantChallengesSchema.safeParse({
-    participantId: formData.get("participantId"),
-    challengesRemaining: formData.get("challengesRemaining"),
-  });
-  if (!parsed.success) {
-    return {
-      success: false,
-      message: "Invalid value.",
-      errors: parsed.error.flatten().fieldErrors as Record<string, string[]>,
-      toastKey: Date.now(),
-    };
-  }
-
-  const participant = await db.arenaParticipant.findUnique({
-    where: { id: parsed.data.participantId },
-    select: { id: true, arenaEventId: true },
-  });
-  if (!participant) {
-    return { success: false, message: "Participant not found.", toastKey: Date.now() };
-  }
-
-  await db.arenaParticipant.update({
-    where: { id: parsed.data.participantId },
-    data: { challengesRemaining: parsed.data.challengesRemaining },
-  });
-  revalidatePath(ARENA_PATH);
-  revalidatePath(`/arena?event=${participant.arenaEventId}`);
-  return { success: true, message: "Challenges remaining updated.", toastKey: Date.now() };
 }
 
 export async function deleteArenaEventAction(

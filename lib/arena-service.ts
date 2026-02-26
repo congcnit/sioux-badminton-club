@@ -298,6 +298,7 @@ async function getYearlyParticipationCount(
 /**
  * List member IDs eligible for an arena event: current month participation >= minSessionsRequired.
  * Filter by gender if category is MEN/WOMEN (map to Member.gender).
+ * Uses a single groupBy query to avoid N round-trips and reduce transaction time (e.g. on Vercel).
  */
 export async function getEligibleMemberIds(
   tx: Pick<PrismaClient, "member" | "sessionAttendance">,
@@ -328,31 +329,37 @@ export async function getEligibleMemberIds(
           select: { id: true },
         });
 
-  const eligible: string[] = [];
-  for (const m of members) {
-    const count = await tx.sessionAttendance.count({
-      where: {
-        memberId: m.id,
-        status: { in: [SessionAttendanceStatus.PRESENT, SessionAttendanceStatus.LATE] },
-        session: {
-          sessionDate: { gte: monthStart, lt: monthEnd },
-        },
+  const memberIds = members.map((m) => m.id);
+  if (memberIds.length === 0) return [];
+
+  const counts = await tx.sessionAttendance.groupBy({
+    by: ["memberId"],
+    where: {
+      memberId: { in: memberIds },
+      status: { in: [SessionAttendanceStatus.PRESENT, SessionAttendanceStatus.LATE] },
+      session: {
+        sessionDate: { gte: monthStart, lt: monthEnd },
       },
-    });
-    if (count >= input.minSessionsRequired) eligible.push(m.id);
-  }
-  return eligible;
+    },
+    _count: { memberId: true },
+  });
+
+  return counts
+    .filter((c) => c._count.memberId >= input.minSessionsRequired)
+    .map((c) => c.memberId);
 }
 
 /**
  * Create arena event and participants (Step 3).
+ * Uses the Prisma client directly (no interactive transaction) to avoid MongoDB
+ * transaction lifecycle issues in serverless (e.g. P2028 on Vercel).
  * 1) Determine month/year from date.
  * 2) Get eligible members (current month participation >= minSessionsRequired).
  * 3) Create ArenaParticipant for each (points=1000, rank=null, challengesRemaining=2, participation counts).
  * 4) Recalculate rankings.
  */
 export async function createArenaEventWithParticipants(
-  tx: Pick<
+  db: Pick<
     PrismaClient,
     | "arenaEvent"
     | "arenaParticipant"
@@ -373,14 +380,14 @@ export async function createArenaEventWithParticipants(
   const month = input.date.getUTCMonth() + 1;
   const year = input.date.getUTCFullYear();
 
-  const eligibleMemberIds = await getEligibleMemberIds(tx, {
+  const eligibleMemberIds = await getEligibleMemberIds(db, {
     month,
     year,
     category: input.category,
     minSessionsRequired: input.minSessionsRequired,
   });
 
-  const event = await tx.arenaEvent.create({
+  const event = await db.arenaEvent.create({
     data: {
       date: input.date,
       month,
@@ -392,26 +399,31 @@ export async function createArenaEventWithParticipants(
     },
   });
 
-  for (const memberId of eligibleMemberIds) {
-    const [monthlyCount, yearlyCount] = await Promise.all([
-      getMonthlyParticipationCount(tx, memberId, month, year),
-      getYearlyParticipationCount(tx, memberId, year),
-    ]);
-    await tx.arenaParticipant.create({
-      data: {
-        arenaEventId: event.id,
-        memberId,
-        points: INITIAL_POINTS,
-        rank: null,
-        challengesRemaining: input.challengesPerParticipant ?? CHALLENGES_PER_EVENT,
-        monthlyParticipationCount: monthlyCount,
-        yearlyParticipationCount: yearlyCount,
-      },
-    });
-  }
+  try {
+    for (const memberId of eligibleMemberIds) {
+      const [monthlyCount, yearlyCount] = await Promise.all([
+        getMonthlyParticipationCount(db, memberId, month, year),
+        getYearlyParticipationCount(db, memberId, year),
+      ]);
+      await db.arenaParticipant.create({
+        data: {
+          arenaEventId: event.id,
+          memberId,
+          points: INITIAL_POINTS,
+          rank: null,
+          challengesRemaining: input.challengesPerParticipant ?? CHALLENGES_PER_EVENT,
+          monthlyParticipationCount: monthlyCount,
+          yearlyParticipationCount: yearlyCount,
+        },
+      });
+    }
 
-  await recalculateArenaRankings(tx, event.id);
-  return { eventId: event.id, participantCount: eligibleMemberIds.length };
+    await recalculateArenaRankings(db, event.id);
+    return { eventId: event.id, participantCount: eligibleMemberIds.length };
+  } catch (e) {
+    await db.arenaEvent.delete({ where: { id: event.id } }).catch(() => {});
+    throw e;
+  }
 }
 
 /**
