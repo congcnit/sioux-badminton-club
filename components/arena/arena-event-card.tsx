@@ -13,7 +13,6 @@ import {
   completeArenaMatchAction,
   deleteArenaEventAction,
   deleteScheduledArenaMatchAction,
-  updateParticipantChallengesAction,
   type ArenaActionState,
 } from "@/app/(dashboard)/arena/actions";
 import { SportCard, SportCardHeader } from "@/components/ui/sport-card";
@@ -558,10 +557,6 @@ export function ArenaEventCard({
     deleteArenaEventAction,
     initialState,
   );
-  const [challengesState, challengesAction, isChallengesPending] = useActionState(
-    updateParticipantChallengesAction,
-    initialState,
-  );
   useActionToast(startState, {
     successPrefix: "Event started",
     errorPrefix: "Failed to start event",
@@ -574,11 +569,6 @@ export function ArenaEventCard({
     successPrefix: "Event deleted",
     errorPrefix: "Failed to delete event",
   });
-  useActionToast(challengesState, {
-    successPrefix: "Challenges remaining updated",
-    errorPrefix: "Failed to update challenges remaining",
-  });
-
   useEffect(() => {
     if (startState.success && startState.toastKey) router.refresh();
   }, [startState.success, startState.toastKey, router]);
@@ -586,16 +576,11 @@ export function ArenaEventCard({
     if (completeState.success && completeState.toastKey) router.refresh();
   }, [completeState.success, completeState.toastKey, router]);
   useEffect(() => {
-    if (challengesState.success && challengesState.toastKey) router.refresh();
-  }, [challengesState.success, challengesState.toastKey, router]);
-  useEffect(() => {
     if (deleteState.success && deleteState.toastKey) {
       router.refresh();
       setDeleteDialogOpen(false);
     }
   }, [deleteState.success, deleteState.toastKey, router]);
-
-  const canEditChallenges = canManage;
 
   const dateStr = new Date(event.date).toISOString().slice(0, 10);
   const title = `${event.year}-${String(event.month).padStart(2, "0")} ${event.category} — ${dateStr}`;
@@ -793,37 +778,7 @@ export function ArenaEventCard({
                   {p.points}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
-                  {canEditChallenges ? (
-                    <form action={challengesAction} className="inline-flex items-center gap-2">
-                      <input type="hidden" name="participantId" value={p.id} />
-                      <input
-                        key={`${p.id}-${p.challengesRemaining}`}
-                        type="number"
-                        name="challengesRemaining"
-                        defaultValue={p.challengesRemaining}
-                        min={0}
-                        max={99}
-                        disabled={isChallengesPending}
-                        className="border-input bg-background w-14 rounded-md border px-2 py-1 text-right text-sm tabular-nums disabled:cursor-not-allowed disabled:opacity-70"
-                      />
-                      <Button
-                        type="submit"
-                        size="sm"
-                        disabled={isChallengesPending}
-                        aria-busy={isChallengesPending}
-                      >
-                        {isChallengesPending ? (
-                          <>
-                            <Loader2 className="size-4 animate-spin" aria-hidden /> Saving…
-                          </>
-                        ) : (
-                          "Save"
-                        )}
-                      </Button>
-                    </form>
-                  ) : (
-                    p.challengesRemaining
-                  )}
+                  {p.challengesRemaining}
                 </TableCell>
               </TableRow>
             );

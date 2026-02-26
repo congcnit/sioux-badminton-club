@@ -24,11 +24,6 @@ export const updateArenaEventSchema = z.object({
   status: z.nativeEnum(ArenaEventStatus).optional(),
 });
 
-export const updateParticipantChallengesSchema = z.object({
-  participantId: z.string().min(1, "Participant is required"),
-  challengesRemaining: z.coerce.number().int().min(0).max(99),
-});
-
 /**
  * BWF (Badminton World Federation) single-game scoring:
  * - First to 21 wins; if 20–20, win by 2; at 29–29, first to 30 wins (30–29).

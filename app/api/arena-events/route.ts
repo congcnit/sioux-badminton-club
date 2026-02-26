@@ -61,15 +61,13 @@ export async function POST(request: Request) {
   const status = parsed.data.status ?? undefined;
 
   try {
-    const result = await db.$transaction(async (tx) => {
-      return createArenaEventWithParticipants(tx, {
-        date,
-        category: parsed.data.category,
-        minSessionsRequired: parsed.data.minSessionsRequired,
-        challengesPerParticipant: parsed.data.challengesPerParticipant,
-        maxRankDiff: parsed.data.maxRankDiff,
-        status,
-      });
+    const result = await createArenaEventWithParticipants(db, {
+      date,
+      category: parsed.data.category,
+      minSessionsRequired: parsed.data.minSessionsRequired,
+      challengesPerParticipant: parsed.data.challengesPerParticipant,
+      maxRankDiff: parsed.data.maxRankDiff,
+      status,
     });
     return NextResponse.json({ eventId: result.eventId }, { status: 201 });
   } catch (e) {
