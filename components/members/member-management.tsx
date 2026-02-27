@@ -216,10 +216,10 @@ export function MemberManagement({ members, canManage }: MemberManagementProps) 
           <h2 className="text-lg font-semibold tracking-tight">Member list</h2>
         </div>
         <div className="p-4 pt-0">
-        <Table>
+        <Table className="min-w-[800px]">
           <TableHeader>
             <TableRow>
-              <TableHead className="w-12" aria-label="Avatar" />
+              <TableHead className="w-12 min-w-12 shrink-0" aria-label="Avatar" />
               <TableHead>Name</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Phone</TableHead>
@@ -235,7 +235,7 @@ export function MemberManagement({ members, canManage }: MemberManagementProps) 
               const rowKey = `${member.id}-${member.status}-${member.userName ?? ""}-${member.userEmail}-${member.phone ?? ""}-${dateInputValue(member.dateOfBirth)}-${member.gender ?? ""}-${member.notes ?? ""}`;
               return canManage ? (
                 <TableRow key={rowKey}>
-                  <TableCell className="w-12 align-middle">
+                  <TableCell className="w-12 min-w-12 shrink-0 align-middle">
                     {member.userImage ? (
                       <Image
                         src={member.userImage}
@@ -304,7 +304,7 @@ export function MemberManagement({ members, canManage }: MemberManagementProps) 
                 </TableRow>
               ) : (
                 <TableRow key={rowKey}>
-                  <TableCell className="w-12 align-middle">
+                  <TableCell className="w-12 min-w-12 shrink-0 align-middle">
                     {member.userImage ? (
                       <Image
                         src={member.userImage}

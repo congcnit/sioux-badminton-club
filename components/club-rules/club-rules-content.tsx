@@ -69,9 +69,9 @@ export function ClubRulesContent() {
           <Image
             src="/payment-qr.jpg"
             alt="QR code for club fund transfer"
-            width={400}
-            height={400}
-            className="min-w-[400px] max-w-full rounded-lg border border-border object-contain"
+            width={320}
+            height={320}
+            className="min-w-[320px] max-w-full rounded-lg border border-border object-contain"
             unoptimized
           />
         </div>

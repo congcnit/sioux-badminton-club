@@ -172,15 +172,15 @@ export function FundManagement({
 
       <div className="rounded-xl border bg-card p-4 shadow-sm">
         <h2 className="mb-3 text-lg font-medium">Transactions</h2>
-        <Table className="table-fixed">
+        <Table className="min-w-[900px] table-fixed">
           <TableHeader>
             <TableRow>
               <TableHead className="w-[120px]">Date</TableHead>
               <TableHead className="w-[100px]">Type</TableHead>
               <TableHead className="w-[110px]">Category</TableHead>
               <TableHead className="w-[100px]">Status</TableHead>
-              <TableHead>Description</TableHead>
-              <TableHead className="w-[120px] text-right">Amount</TableHead>
+              <TableHead className="min-w-[200px] w-[200px]">Description</TableHead>
+              <TableHead className="w-[120px] shrink-0 text-right">Amount</TableHead>
               {canManage ? <TableHead className="w-[160px]">Actions</TableHead> : null}
             </TableRow>
           </TableHeader>
@@ -236,15 +236,15 @@ export function FundManagement({
                       <option value={FundTransactionStatus.COMPLETED}>Completed</option>
                     </select>
                   </TableCell>
-                  <TableCell className="align-middle">
+                  <TableCell className="align-middle min-w-[200px]">
                     <Input
                       name="description"
                       form={formId}
                       defaultValue={tx.description ?? ""}
-                      className="h-9 w-full"
+                      className="h-9 min-w-0 w-full"
                     />
                   </TableCell>
-                  <TableCell className="align-middle text-right">
+                  <TableCell className="align-middle w-[120px] shrink-0 text-right">
                     <Input
                       name="amount"
                       form={formId}
@@ -317,9 +317,13 @@ export function FundManagement({
                       {tx.status === FundTransactionStatus.COMPLETED ? "Completed" : "Pending"}
                     </span>
                   </TableCell>
-                  <TableCell>{tx.description ?? "-"}</TableCell>
+                  <TableCell className="min-w-[200px]">
+                    <span className="block truncate" title={tx.description ?? undefined}>
+                      {tx.description ?? "-"}
+                    </span>
+                  </TableCell>
                   <TableCell
-                    className={`text-right font-medium ${
+                    className={`w-[120px] shrink-0 text-right font-medium ${
                       isIncomeType(tx.type) ? "text-emerald-700 dark:text-emerald-400" : "text-destructive"
                     }`}
                   >

@@ -88,11 +88,11 @@ export function ArenaInfoModal() {
       </button>
       <AlertDialogContent
         size="default"
-        className="max-w-lg"
+        className="flex max-h-[90dvh] max-w-lg flex-col"
         onOverlayClick={() => setOpen(false)}
       >
-        <AlertDialogHeader>
-          <AlertDialogTitle className="flex flex-col gap-1 text-left">
+        <AlertDialogHeader className="flex min-h-0 flex-1 flex-col">
+          <AlertDialogTitle className="shrink-0 flex flex-col gap-1 text-left">
             <span className="flex items-center gap-2 text-2xl font-bold tracking-tight">
               <span aria-hidden className="text-3xl">🏸</span>
               Arena of Glory
@@ -102,7 +102,7 @@ export function ArenaInfoModal() {
             </span>
           </AlertDialogTitle>
           <AlertDialogDescription asChild>
-            <div className="mt-4 space-y-4 text-left">
+            <div className="mt-4 min-h-0 flex-1 space-y-4 overflow-y-auto text-left pr-1">
               {sections.map(({ icon: Icon, title, body }) => (
                 <div
                   key={title}
@@ -122,7 +122,7 @@ export function ArenaInfoModal() {
             </div>
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <AlertDialogFooter>
+        <AlertDialogFooter className="shrink-0">
           <AlertDialogCancel>Close</AlertDialogCancel>
         </AlertDialogFooter>
       </AlertDialogContent>
