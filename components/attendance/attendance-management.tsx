@@ -160,6 +160,14 @@ function toDateInputValue(value: Date | string) {
   return d.toISOString().slice(0, 10);
 }
 
+function formatSessionDateWithWeekday(value: Date | string): string {
+  const d = typeof value === "string" ? new Date(value) : value;
+  if (Number.isNaN(d.getTime())) return "";
+  const dateStr = d.toISOString().slice(0, 10);
+  const weekday = new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(d);
+  return `${dateStr} (${weekday})`;
+}
+
 function toTimeInputValue(value: Date | string | null) {
   if (value == null) return "";
   const d = typeof value === "string" ? new Date(value) : value;
@@ -750,7 +758,7 @@ export function AttendanceManagement({
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="text-lg font-medium">
-                  {toDateInputValue(session.sessionDate)}
+                  {formatSessionDateWithWeekday(session.sessionDate)}
                 </h3>
                 <span
                   className={cn(
