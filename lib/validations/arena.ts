@@ -1,24 +1,35 @@
 import { ArenaCategory, ArenaEventStatus } from "@prisma/client";
 import { z } from "zod";
 
-export const createArenaEventSchema = z.object({
-  date: z
-    .string()
-    .refine((v) => !Number.isNaN(new Date(v).getTime()), { message: "Invalid date" }),
-  category: z.nativeEnum(ArenaCategory),
-  minSessionsRequired: z.coerce.number().int().min(0),
-  challengesPerParticipant: z
-    .union([z.coerce.number().int().min(0).max(99), z.literal("")])
-    .optional()
-    .default(2)
-    .transform((v) => (v === "" ? 2 : v)),
-  maxRankDiff: z
-    .union([z.coerce.number().int().min(1).max(10), z.literal("")])
-    .optional()
-    .default(2)
-    .transform((v) => (v === "" ? 2 : v)),
-  status: z.nativeEnum(ArenaEventStatus).nullish(),
-});
+const dateString = z
+  .string()
+  .refine((v) => !Number.isNaN(new Date(v).getTime()), { message: "Invalid date" });
+
+export const createArenaEventSchema = z
+  .object({
+    date: dateString,
+    category: z.nativeEnum(ArenaCategory),
+    minSessionsRequired: z.coerce.number().int().min(0),
+    /** Start of the date range used to count attended sessions for eligibility (inclusive). */
+    sessionsCountFrom: dateString,
+    /** End of the date range used to count attended sessions for eligibility (inclusive). */
+    sessionsCountTo: dateString,
+    challengesPerParticipant: z
+      .union([z.coerce.number().int().min(0).max(99), z.literal("")])
+      .optional()
+      .default(2)
+      .transform((v) => (v === "" ? 2 : v)),
+    maxRankDiff: z
+      .union([z.coerce.number().int().min(1).max(10), z.literal("")])
+      .optional()
+      .default(2)
+      .transform((v) => (v === "" ? 2 : v)),
+    status: z.nativeEnum(ArenaEventStatus).nullish(),
+  })
+  .refine(
+    (d) => new Date(d.sessionsCountFrom).getTime() <= new Date(d.sessionsCountTo).getTime(),
+    { message: "Sessions count range: start must be on or before end", path: ["sessionsCountTo"] },
+  );
 
 export const updateArenaEventSchema = z.object({
   status: z.nativeEnum(ArenaEventStatus).optional(),

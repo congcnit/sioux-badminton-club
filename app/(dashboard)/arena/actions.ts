@@ -53,6 +53,8 @@ export async function createArenaEventAction(
     date: formData.get("date"),
     category: formData.get("category"),
     minSessionsRequired: formData.get("minSessionsRequired"),
+    sessionsCountFrom: formData.get("sessionsCountFrom"),
+    sessionsCountTo: formData.get("sessionsCountTo"),
     challengesPerParticipant: formData.get("challengesPerParticipant"),
     maxRankDiff: formData.get("maxRankDiff"),
     status: formData.get("status"),
@@ -71,6 +73,8 @@ export async function createArenaEventAction(
       date: new Date(parsed.data.date),
       category: parsed.data.category,
       minSessionsRequired: parsed.data.minSessionsRequired,
+      sessionsCountFrom: new Date(parsed.data.sessionsCountFrom),
+      sessionsCountTo: new Date(parsed.data.sessionsCountTo),
       challengesPerParticipant: parsed.data.challengesPerParticipant,
       maxRankDiff: parsed.data.maxRankDiff,
       status: parsed.data.status ?? undefined,
@@ -81,7 +85,7 @@ export async function createArenaEventAction(
       success: true,
       message:
         n === 0
-          ? "Arena event created with no participants (no members met eligibility for this month/category)."
+          ? "Arena event created with no participants (no members met eligibility in the selected session range/category)."
           : `Arena event created with ${n} participant${n === 1 ? "" : "s"}.`,
       eventId: result.eventId,
       toastKey: Date.now(),

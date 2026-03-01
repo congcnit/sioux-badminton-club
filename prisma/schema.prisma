@@ -394,6 +394,9 @@ model ArenaEvent {
   year                  Int
   category              ArenaCategory
   minSessionsRequired   Int
+  /** Date range (inclusive) used to count attended sessions for eligibility. */
+  sessionsCountFrom    DateTime?
+  sessionsCountTo      DateTime?
   /** Max rank difference allowed for a challenge (e.g. 2 = within 2 positions). */
   maxRankDiff           Int              @default(2)
   status                ArenaEventStatus @default(SCHEDULED)
