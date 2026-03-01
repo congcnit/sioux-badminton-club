@@ -296,17 +296,24 @@ async function getYearlyParticipationCount(
 }
 
 /**
- * List member IDs eligible for an arena event: current month participation >= minSessionsRequired.
+ * List member IDs eligible for an arena event: participation in the given date range >= minSessionsRequired.
  * Filter by gender if category is MEN/WOMEN (map to Member.gender).
  * Uses a single groupBy query to avoid N round-trips and reduce transaction time (e.g. on Vercel).
  */
 export async function getEligibleMemberIds(
   tx: Pick<PrismaClient, "member" | "sessionAttendance">,
-  input: { month: number; year: number; category: ArenaCategory; minSessionsRequired: number },
+  input: {
+    sessionsCountFrom: Date;
+    sessionsCountTo: Date;
+    category: ArenaCategory;
+    minSessionsRequired: number;
+  },
 ): Promise<string[]> {
-  // Use UTC so February 2026 is consistent regardless of server timezone
-  const monthStart = new Date(Date.UTC(input.year, input.month - 1, 1));
-  const monthEnd = new Date(Date.UTC(input.year, input.month, 1));
+  // Inclusive range: sessions on sessionsCountFrom and sessionsCountTo count
+  const rangeStart = new Date(input.sessionsCountFrom);
+  rangeStart.setUTCHours(0, 0, 0, 0);
+  const rangeEnd = new Date(input.sessionsCountTo);
+  rangeEnd.setUTCHours(23, 59, 59, 999);
 
   const genderFilter =
     input.category === "MEN"
@@ -342,7 +349,7 @@ export async function getEligibleMemberIds(
       memberId: { in: memberIds },
       status: { in: [SessionAttendanceStatus.PRESENT, SessionAttendanceStatus.LATE] },
       session: {
-        sessionDate: { gte: monthStart, lt: monthEnd },
+        sessionDate: { gte: rangeStart, lte: rangeEnd },
       },
     },
     _count: { memberId: true },
@@ -357,8 +364,8 @@ export async function getEligibleMemberIds(
  * Create arena event and participants (Step 3).
  * Uses the Prisma client directly (no interactive transaction) to avoid MongoDB
  * transaction lifecycle issues in serverless (e.g. P2028 on Vercel).
- * 1) Determine month/year from date.
- * 2) Get eligible members (current month participation >= minSessionsRequired).
+ * 1) Determine month/year from date (for display/indexing).
+ * 2) Get eligible members (participation in sessionsCountFrom..sessionsCountTo >= minSessionsRequired).
  * 3) Create ArenaParticipant for each (points=1000, rank=null, challengesRemaining=2, participation counts).
  * 4) Recalculate rankings.
  */
@@ -375,18 +382,19 @@ export async function createArenaEventWithParticipants(
     date: Date;
     category: ArenaCategory;
     minSessionsRequired: number;
+    sessionsCountFrom: Date;
+    sessionsCountTo: Date;
     challengesPerParticipant?: number;
     maxRankDiff?: number;
     status?: ArenaEventStatus;
   },
 ): Promise<{ eventId: string; participantCount: number }> {
-  // Use UTC so calendar date "2026-02-28" always means February 2026 regardless of server timezone
   const month = input.date.getUTCMonth() + 1;
   const year = input.date.getUTCFullYear();
 
   const eligibleMemberIds = await getEligibleMemberIds(db, {
-    month,
-    year,
+    sessionsCountFrom: input.sessionsCountFrom,
+    sessionsCountTo: input.sessionsCountTo,
     category: input.category,
     minSessionsRequired: input.minSessionsRequired,
   });
@@ -398,6 +406,8 @@ export async function createArenaEventWithParticipants(
       year,
       category: input.category,
       minSessionsRequired: input.minSessionsRequired,
+      sessionsCountFrom: input.sessionsCountFrom,
+      sessionsCountTo: input.sessionsCountTo,
       maxRankDiff: input.maxRankDiff ?? MAX_RANK_DIFF_FOR_CHALLENGE,
       status: input.status ?? "SCHEDULED",
     },

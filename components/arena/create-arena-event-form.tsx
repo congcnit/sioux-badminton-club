@@ -46,6 +46,9 @@ export function CreateArenaEventForm({
   }, [state.success, state.toastKey, router]);
 
   const today = new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+  const lastOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
 
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
@@ -86,6 +89,40 @@ export function CreateArenaEventForm({
               required
             />
           </div>
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Session count range</Label>
+            <p className="text-xs text-muted-foreground">
+              Count attended sessions in this date range to determine who can participate. Members with at least the min sessions in this range are eligible.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="arena-event-sessions-from" className="text-xs">
+                  From
+                </Label>
+                <input
+                  id="arena-event-sessions-from"
+                  name="sessionsCountFrom"
+                  type="date"
+                  defaultValue={firstOfMonth}
+                  className="border-input bg-background flex h-9 w-full rounded-md border px-3 py-1 text-sm"
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="arena-event-sessions-to" className="text-xs">
+                  To
+                </Label>
+                <input
+                  id="arena-event-sessions-to"
+                  name="sessionsCountTo"
+                  type="date"
+                  defaultValue={lastOfMonth}
+                  className="border-input bg-background flex h-9 w-full rounded-md border px-3 py-1 text-sm"
+                  required
+                />
+              </div>
+            </div>
+          </div>
           <div className="space-y-1">
             <Label htmlFor="arena-event-min-sessions">Min sessions required</Label>
             <input
@@ -98,7 +135,7 @@ export function CreateArenaEventForm({
               required
             />
             <p className="text-xs text-muted-foreground">
-              Members must have at least this many session attendances in the event month to participate.
+              Members must have at least this many session attendances in the session count range above to participate.
             </p>
           </div>
           <div className="space-y-1">

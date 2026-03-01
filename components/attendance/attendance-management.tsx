@@ -202,11 +202,16 @@ function AttendanceEditableRow({
   attendee: SessionListItem["attendees"][number];
 }) {
   const formId = useId();
+  const router = useRouter();
   const [state, action, isPending] = useActionState(markAttendanceAction, initialInlineState);
   useActionToast(state, {
     successPrefix: "Attendance updated",
     errorPrefix: "Unable to update attendance",
   });
+
+  useEffect(() => {
+    if (state.success) router.refresh();
+  }, [state.success, router]);
 
   return (
     <TableRow className={isPending ? "opacity-70" : undefined}>
@@ -278,6 +283,7 @@ function SessionEditDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const formId = useId();
+  const router = useRouter();
   const [state, action, isPending] = useActionState(updateSessionAction, initialState);
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
 
@@ -287,8 +293,11 @@ function SessionEditDialog({
   });
 
   useEffect(() => {
-    if (state.success) onOpenChange(false);
-  }, [state.success, onOpenChange]);
+    if (state.success) {
+      router.refresh();
+      onOpenChange(false);
+    }
+  }, [state.success, router, onOpenChange]);
 
   useEffect(() => {
     if (session) {
@@ -477,7 +486,6 @@ export function AttendanceManagement({
   const [courtId, setCourtId] = useState("");
   const [sessionStatus, setSessionStatus] = useState<SessionStatus>(SessionStatus.SCHEDULED);
   const [notes, setNotes] = useState("");
-  const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [editOpen, setEditOpen] = useState(false);
   const [editingSession, setEditingSession] = useState<SessionListItem | null>(null);
   const [joinModalOpen, setJoinModalOpen] = useState(false);
@@ -526,17 +534,6 @@ export function AttendanceManagement({
     }
   }, [deleteState.success, deleteState.toastKey, router]);
 
-  function toggleMember(memberId: string, checked: boolean) {
-    if (checked) {
-      setSelectedMemberIds((prev) =>
-        prev.includes(memberId) ? prev : [...prev, memberId],
-      );
-      return;
-    }
-
-    setSelectedMemberIds((prev) => prev.filter((id) => id !== memberId));
-  }
-
   async function handleLoadMore() {
     if (loadingMore || !hasMore) return;
     setLoadingMore(true);
@@ -554,7 +551,7 @@ export function AttendanceManagement({
         title="Sessions & Attendance"
         subtitle={
           canManage
-            ? "Create sessions, select members (default Present), then update attendance and fines later."
+            ? "Create sessions; members can register themselves or you can add them when editing a session."
             : "View sessions and attendance records."
         }
       />
@@ -641,7 +638,7 @@ export function AttendanceManagement({
               ))}
             </select>
           </div>
-          <div className="space-y-1 md:col-span-2">
+          <div className="space-y-1 md:col-span-2 lg:col-span-3">
             <Label htmlFor="session-notes">Notes</Label>
             <Input
               id="session-notes"
@@ -650,33 +647,6 @@ export function AttendanceManagement({
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
             />
-          </div>
-          <div className="space-y-2 md:col-span-2 lg:col-span-3">
-            <Label>Select Members (optional; default status: Present)</Label>
-            <div className="grid max-h-48 gap-2 overflow-y-auto rounded-md border p-3 sm:grid-cols-2 lg:grid-cols-3">
-              {members.map((member) => (
-                <label
-                  key={member.id}
-                  className="flex items-center gap-2 text-sm text-foreground"
-                >
-                  <input
-                    type="checkbox"
-                    name="memberIds"
-                    value={member.id}
-                    checked={selectedMemberIds.includes(member.id)}
-                    onChange={(event) => toggleMember(member.id, event.target.checked)}
-                    className="h-4 w-4 rounded border-input"
-                  />
-                  <span>{member.name}</span>
-                </label>
-              ))}
-              {!members.length ? (
-                <p className="text-xs text-muted-foreground">No members available.</p>
-              ) : null}
-            </div>
-            {state.errors?.memberIds ? (
-              <p className="text-xs text-destructive">{state.errors.memberIds[0]}</p>
-            ) : null}
           </div>
           </div>
           </fieldset>

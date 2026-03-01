@@ -58,6 +58,8 @@ export async function POST(request: Request) {
   }
 
   const date = new Date(parsed.data.date);
+  const sessionsCountFrom = new Date(parsed.data.sessionsCountFrom);
+  const sessionsCountTo = new Date(parsed.data.sessionsCountTo);
   const status = parsed.data.status ?? undefined;
 
   try {
@@ -65,6 +67,8 @@ export async function POST(request: Request) {
       date,
       category: parsed.data.category,
       minSessionsRequired: parsed.data.minSessionsRequired,
+      sessionsCountFrom,
+      sessionsCountTo,
       challengesPerParticipant: parsed.data.challengesPerParticipant,
       maxRankDiff: parsed.data.maxRankDiff,
       status,
