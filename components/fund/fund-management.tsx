@@ -170,22 +170,16 @@ export function FundManagement({
         year={chartYear}
       />
 
-      <div className="rounded-xl border bg-card p-4 shadow-sm">
-        <h2 className="mb-3 text-lg font-medium">Transactions</h2>
-        <Table className="min-w-[900px] table-fixed">
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[120px]">Date</TableHead>
-              <TableHead className="w-[100px]">Type</TableHead>
-              <TableHead className="w-[110px]">Category</TableHead>
-              <TableHead className="w-[100px]">Status</TableHead>
-              <TableHead className="min-w-[200px] w-[200px]">Description</TableHead>
-              <TableHead className="w-[120px] shrink-0 text-right">Amount</TableHead>
-              {canManage ? <TableHead className="w-[160px]">Actions</TableHead> : null}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {transactions.map((tx) => {
+      {(() => {
+        const pendingTransactions = transactions.filter(
+          (tx) => tx.status === FundTransactionStatus.PENDING,
+        );
+        const currentTransactions = transactions.filter(
+          (tx) => tx.status !== FundTransactionStatus.PENDING,
+        );
+
+        const renderTransactionRows = (list: FundTransaction[]) =>
+          list.map((tx) => {
               const formId = `update-fund-${tx.id}`;
               return canManage ? (
                 <TableRow key={tx.id}>
@@ -331,25 +325,68 @@ export function FundManagement({
                   </TableCell>
                 </TableRow>
               );
-            })}
-            {!transactions.length ? (
-              <TableRow>
-                <TableCell colSpan={canManage ? 7 : 6} className="p-4">
-                  <EmptyState
-                    title="No transactions found"
-                    description={
-                      canManage
-                        ? "No transactions this year yet. Add a new fund transaction."
-                        : "No transactions this year yet."
-                    }
-                    icon={HandCoins}
-                  />
-                </TableCell>
-              </TableRow>
+          });
+
+        const emptyRow = (colSpan: number) => (
+          <TableRow>
+            <TableCell colSpan={colSpan} className="p-4">
+              <EmptyState
+                title="No transactions found"
+                description={
+                  canManage
+                    ? "No transactions this year yet. Add a new fund transaction."
+                    : "No transactions this year yet."
+                }
+                icon={HandCoins}
+              />
+            </TableCell>
+          </TableRow>
+        );
+
+        const tableHeader = (
+          <>
+            <TableHead className="w-[120px]">Date</TableHead>
+            <TableHead className="w-[100px]">Type</TableHead>
+            <TableHead className="w-[110px]">Category</TableHead>
+            <TableHead className="w-[100px]">Status</TableHead>
+            <TableHead className="min-w-[200px] w-[200px]">Description</TableHead>
+            <TableHead className="w-[120px] shrink-0 text-right">Amount</TableHead>
+            {canManage ? <TableHead className="w-[160px]">Actions</TableHead> : null}
+          </>
+        );
+
+        const cols = canManage ? 7 : 6;
+
+        return (
+          <>
+            {pendingTransactions.length > 0 ? (
+              <div className="rounded-xl border bg-card p-4 shadow-sm">
+                <h2 className="mb-3 text-lg font-medium">Pending transactions</h2>
+                <Table className="min-w-[900px] table-fixed">
+                  <TableHeader>
+                    <TableRow>{tableHeader}</TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {renderTransactionRows(pendingTransactions)}
+                  </TableBody>
+                </Table>
+              </div>
             ) : null}
-          </TableBody>
-        </Table>
-      </div>
+            <div className="rounded-xl border bg-card p-4 shadow-sm">
+              <h2 className="mb-3 text-lg font-medium">Transactions</h2>
+              <Table className="min-w-[900px] table-fixed">
+                <TableHeader>
+                  <TableRow>{tableHeader}</TableRow>
+                </TableHeader>
+                <TableBody>
+                  {renderTransactionRows(currentTransactions)}
+                  {currentTransactions.length === 0 ? emptyRow(cols) : null}
+                </TableBody>
+              </Table>
+            </div>
+          </>
+        );
+      })()}
     </section>
   );
 }
