@@ -39,11 +39,10 @@ const initialState: AttendanceActionState = {
   message: "",
 };
 
-function combineSessionDateAndTime(sessionDate: string, time?: string) {
-  if (!time) return null;
-  const combined = new Date(`${sessionDate}T${time}:00`);
-  if (Number.isNaN(combined.getTime())) return null;
-  return combined;
+function parseOptionalDateTime(isoOrNull: string | undefined): Date | null {
+  if (!isoOrNull || isoOrNull.trim() === "") return null;
+  const d = new Date(isoOrNull);
+  return Number.isNaN(d.getTime()) ? null : d;
 }
 
 function parseUnexcusedAbsenceFineAmount() {
@@ -129,15 +128,15 @@ export async function createSessionAction(
     };
   }
 
+  const startTime = parseOptionalDateTime(parsed.data.startTime);
+  const endTime = parseOptionalDateTime(parsed.data.endTime);
+
   await db.badmintonSession.create({
     data: {
       title: buildSessionLabel(parsed.data.sessionDate, court.name),
       sessionDate: new Date(parsed.data.sessionDate),
-      startTime: combineSessionDateAndTime(
-        parsed.data.sessionDate,
-        parsed.data.startTime,
-      ),
-      endTime: combineSessionDateAndTime(parsed.data.sessionDate, parsed.data.endTime),
+      startTime,
+      endTime,
       courtId: court.id,
       notes: parsed.data.notes?.trim() || null,
       status: parsed.data.status,
@@ -400,20 +399,17 @@ export async function updateSessionAction(
   const isCompletingSession =
     previousStatus === SessionStatus.SCHEDULED && parsed.data.status === SessionStatus.COMPLETED;
 
+  const startTime = parseOptionalDateTime(parsed.data.startTime);
+  const endTime = parseOptionalDateTime(parsed.data.endTime);
+
   await db.$transaction(async (tx) => {
     await tx.badmintonSession.update({
       where: { id: parsed.data.sessionId },
       data: {
         title,
         sessionDate,
-        startTime: combineSessionDateAndTime(
-          parsed.data.sessionDate,
-          parsed.data.startTime,
-        ),
-        endTime: combineSessionDateAndTime(
-          parsed.data.sessionDate,
-          parsed.data.endTime,
-        ),
+        startTime,
+        endTime,
         courtId,
         notes: parsed.data.notes?.trim() || null,
         status: parsed.data.status,

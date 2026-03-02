@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useId, useState, useEffect } from "react";
+import { startTransition, useActionState, useId, useState, useEffect } from "react";
 import { SessionAttendanceStatus, SessionStatus } from "@prisma/client";
 import { useRouter } from "next/navigation";
 
@@ -301,11 +301,11 @@ function SessionEditDialog({
   });
 
   useEffect(() => {
-    if (state.success) {
+    if (state.success && open) {
       router.refresh();
       onOpenChange(false);
     }
-  }, [state.success, router, onOpenChange]);
+  }, [state.success, open, router, onOpenChange]);
 
   useEffect(() => {
     if (session) {
@@ -337,7 +337,31 @@ function SessionEditDialog({
             Update date, time, court, status, notes, and member list for this session.
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <form id={formId} action={action} className="space-y-4">
+        <form
+          id={formId}
+          className="space-y-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const form = e.currentTarget;
+            const fd = new FormData(form);
+            const sessionDate = fd.get("sessionDate");
+            const start = fd.get("startTime");
+            const end = fd.get("endTime");
+            if (sessionDate && start && end) {
+              fd.set(
+                "startTime",
+                new Date(`${sessionDate}T${start}:00`).toISOString(),
+              );
+              fd.set(
+                "endTime",
+                new Date(`${sessionDate}T${end}:00`).toISOString(),
+              );
+            }
+            startTransition(() => {
+              action(fd);
+            });
+          }}
+        >
           <input type="hidden" name="sessionId" value={session.id} />
           <fieldset disabled={isPending} className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2">
@@ -566,7 +590,30 @@ export function AttendanceManagement({
 
       {canManage ? (
         <SportCard variant="gradient" className="p-5">
-          <form action={createSessionFormAction} className="space-y-4">
+          <form
+            className="space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const form = e.currentTarget;
+              const fd = new FormData(form);
+              const sessionDate = fd.get("sessionDate");
+              const start = fd.get("startTime");
+              const end = fd.get("endTime");
+              if (sessionDate && start && end) {
+                fd.set(
+                  "startTime",
+                  new Date(`${sessionDate}T${start}:00`).toISOString(),
+                );
+                fd.set(
+                  "endTime",
+                  new Date(`${sessionDate}T${end}:00`).toISOString(),
+                );
+              }
+              startTransition(() => {
+                createSessionFormAction(fd);
+              });
+            }}
+          >
           <fieldset disabled={createSessionPending} className="space-y-4">
           <legend className="sr-only">Create session</legend>
           <h2 className="text-lg font-medium">Create session</h2>

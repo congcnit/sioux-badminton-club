@@ -8,10 +8,18 @@ const optionalTime = z
     message: "Invalid time.",
   });
 
+/** Accepts ISO date-time string from client (date + time combined in user's timezone, then .toISOString()). */
+const optionalDateTime = z
+  .string()
+  .optional()
+  .refine((value) => !value || !Number.isNaN(new Date(value).getTime()), {
+    message: "Invalid date/time.",
+  });
+
 export const createSessionSchema = z.object({
   sessionDate: z.string().min(1, "Session date is required."),
-  startTime: optionalTime,
-  endTime: optionalTime,
+  startTime: optionalDateTime,
+  endTime: optionalDateTime,
   courtId: z.string().min(1, "Court is required."),
   memberIds: z.array(z.string().min(1)).default([]),
   notes: z.string().trim().max(500).optional(),
@@ -55,8 +63,8 @@ export const updateSessionNotesSchema = z.object({
 export const updateSessionSchema = z.object({
   sessionId: z.string().min(1, "Session id is required."),
   sessionDate: z.string().min(1, "Session date is required."),
-  startTime: optionalTime,
-  endTime: optionalTime,
+  startTime: optionalDateTime,
+  endTime: optionalDateTime,
   courtId: z.string().optional(),
   memberIds: z.array(z.string().min(1)).default([]),
   notes: z.string().trim().max(500).optional(),
