@@ -13,6 +13,7 @@ import {
   completeArenaMatchAction,
   deleteArenaEventAction,
   deleteScheduledArenaMatchAction,
+  updateArenaMatchDateAction,
   type ArenaActionState,
 } from "@/app/(dashboard)/arena/actions";
 import { SportCard, SportCardHeader } from "@/components/ui/sport-card";
@@ -66,6 +67,7 @@ type ArenaMatchWithPlayers = {
   opponentPointsAtMatch: number | null;
   challengerPointsChange: number | null;
   opponentPointsChange: number | null;
+  matchDate: Date | null;
   createdAt: Date;
   challenger: {
     id: string;
@@ -533,6 +535,77 @@ function DeleteScheduledMatchButton({ matchId }: { matchId: string }) {
   );
 }
 
+function UpdateMatchDateForm({
+  matchId,
+  currentDate,
+}: {
+  matchId: string;
+  currentDate: Date;
+}) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [state, action, isPending] = useActionState(updateArenaMatchDateAction, initialState);
+  const dateStr = currentDate.toISOString().slice(0, 10);
+
+  useActionToast(state, {
+    successPrefix: "Match date updated",
+    errorPrefix: "Failed to update date",
+  });
+  useEffect(() => {
+    if (state.success && state.toastKey) {
+      router.refresh();
+      setOpen(false);
+    }
+  }, [state.success, state.toastKey, router]);
+
+  return (
+    <AlertDialog open={open} onOpenChange={setOpen}>
+      <AlertDialogTrigger asChild>
+        <Button size="sm" variant="ghost" type="button" className="text-muted-foreground hover:text-foreground">
+          Edit date
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent onOverlayClick={() => setOpen(false)}>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Update match date</AlertDialogTitle>
+          <AlertDialogDescription>
+            Set the date for this match (e.g. when it was played). This is used for display in match history.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <form action={action} className="space-y-4">
+          <input type="hidden" name="matchId" value={matchId} />
+          <fieldset disabled={isPending} className="space-y-2">
+            <Label htmlFor="update-match-date">Date</Label>
+            <input
+              id="update-match-date"
+              name="matchDate"
+              type="date"
+              defaultValue={dateStr}
+              className="border-input bg-background flex h-9 w-full rounded-md border px-3 py-1 text-sm"
+              required
+            />
+          </fieldset>
+          {state.message && !state.success ? (
+            <p className="text-sm text-destructive">{state.message}</p>
+          ) : null}
+          <AlertDialogFooter>
+            <AlertDialogCancel type="button" disabled={isPending}>Cancel</AlertDialogCancel>
+            <Button type="submit" disabled={isPending} aria-busy={isPending}>
+              {isPending ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" aria-hidden /> Saving…
+                </>
+              ) : (
+                "Save"
+              )}
+            </Button>
+          </AlertDialogFooter>
+        </form>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 export function ArenaEventCard({
   event,
   canManage,
@@ -912,14 +985,23 @@ export function ArenaEventCard({
                       challengerDelta >= 0 ? `+${challengerDelta}` : String(challengerDelta);
                     const opponentDeltaStr =
                       opponentDelta >= 0 ? `+${opponentDelta}` : String(opponentDelta);
+                    const displayDate = m.matchDate ?? m.createdAt;
                     return (
                       <TableRow key={m.id} className="text-sm">
-                        <TableCell className="text-muted-foreground whitespace-nowrap">
-                          {new Date(m.createdAt).toLocaleDateString(undefined, {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          })}
+                        <TableCell className="text-muted-foreground whitespace-nowrap align-top">
+                          <span className="inline-flex flex-col gap-0.5">
+                            {new Date(displayDate).toLocaleDateString(undefined, {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            })}
+                            {canManage ? (
+                              <UpdateMatchDateForm
+                                matchId={m.id}
+                                currentDate={new Date(displayDate)}
+                              />
+                            ) : null}
+                          </span>
                         </TableCell>
                         <TableCell
                           className={

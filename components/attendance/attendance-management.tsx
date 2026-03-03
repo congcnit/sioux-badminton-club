@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useActionState, useId, useState, useEffect } from "react";
+import { startTransition, useActionState, useId, useState, useEffect, useRef } from "react";
 import { SessionAttendanceStatus, SessionStatus } from "@prisma/client";
 import { useRouter } from "next/navigation";
 
@@ -294,6 +294,7 @@ function SessionEditDialog({
   const router = useRouter();
   const [state, action, isPending] = useActionState(updateSessionAction, initialState);
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
+  const handledSuccessRef = useRef(false);
 
   useActionToast(state, {
     successPrefix: "Session updated",
@@ -301,9 +302,14 @@ function SessionEditDialog({
   });
 
   useEffect(() => {
-    if (state.success && open) {
+    if (isPending) handledSuccessRef.current = false;
+  }, [isPending]);
+
+  useEffect(() => {
+    if (state.success && open && !handledSuccessRef.current) {
       router.refresh();
       onOpenChange(false);
+      handledSuccessRef.current = true;
     }
   }, [state.success, open, router, onOpenChange]);
 

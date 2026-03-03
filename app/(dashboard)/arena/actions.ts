@@ -19,9 +19,13 @@ import {
   createScheduledArenaMatchSchema,
   challengeOpponentSchema,
   completeArenaMatchSchema,
+  updateArenaMatchDateSchema,
 } from "@/lib/validations/arena";
 
 const ARENA_PATH = "/arena";
+
+/** Interactive transaction timeout (ms). Completing a match recalculates rankings for all participants; default 5s can be exceeded on Vercel. */
+const ARENA_TRANSACTION_TIMEOUT_MS = 15_000;
 
 export type ArenaActionState = {
   success: boolean;
@@ -163,15 +167,18 @@ export async function completeArenaEventAction(
     return { success: false, message: "Event must be active to complete.", toastKey: Date.now() };
   }
 
-  await db.$transaction(async (tx) => {
-    // Ensure every participant has a final rank (including events with no matches).
-    await recalculateArenaRankings(tx, eventId);
-    await tx.arenaEvent.update({
-      where: { id: eventId },
-      data: { status: ArenaEventStatus.COMPLETED },
-    });
-    await recordHistoricalRankingsForCompletedEvent(tx, eventId);
-  });
+  await db.$transaction(
+    async (tx) => {
+      // Ensure every participant has a final rank (including events with no matches).
+      await recalculateArenaRankings(tx, eventId);
+      await tx.arenaEvent.update({
+        where: { id: eventId },
+        data: { status: ArenaEventStatus.COMPLETED },
+      });
+      await recordHistoricalRankingsForCompletedEvent(tx, eventId);
+    },
+    { timeout: ARENA_TRANSACTION_TIMEOUT_MS },
+  );
   revalidatePath(ARENA_PATH, "page");
   return { success: true, message: "Event completed.", toastKey: Date.now() };
 }
@@ -320,12 +327,14 @@ export async function completeArenaMatchAction(
     };
   }
 
-  const result = await db.$transaction(async (tx) =>
-    completeArenaMatch(tx, {
-      matchId: parsed.data.matchId,
-      challengerScore: parsed.data.challengerScore,
-      opponentScore: parsed.data.opponentScore,
-    }),
+  const result = await db.$transaction(
+    async (tx) =>
+      completeArenaMatch(tx, {
+        matchId: parsed.data.matchId,
+        challengerScore: parsed.data.challengerScore,
+        opponentScore: parsed.data.opponentScore,
+      }),
+    { timeout: ARENA_TRANSACTION_TIMEOUT_MS },
   );
 
   if (!result.ok) {
@@ -350,10 +359,13 @@ export async function deleteArenaEventAction(
   }
 
   try {
-    await db.$transaction(async (tx) => {
-      await revertHistoricalRankingsForDeletedEvent(tx, eventId);
-      await tx.arenaEvent.delete({ where: { id: eventId } });
-    });
+    await db.$transaction(
+      async (tx) => {
+        await revertHistoricalRankingsForDeletedEvent(tx, eventId);
+        await tx.arenaEvent.delete({ where: { id: eventId } });
+      },
+      { timeout: ARENA_TRANSACTION_TIMEOUT_MS },
+    );
     revalidatePath(ARENA_PATH);
     return { success: true, message: "Arena event deleted.", toastKey: Date.now() };
   } catch (e) {
@@ -390,4 +402,42 @@ export async function deleteScheduledArenaMatchAction(
   await db.arenaMatch.delete({ where: { id: matchId } });
   revalidatePath(ARENA_PATH, "page");
   return { success: true, message: "Scheduled match deleted.", toastKey: Date.now() };
+}
+
+export async function updateArenaMatchDateAction(
+  _prevState: ArenaActionState,
+  formData: FormData,
+): Promise<ArenaActionState> {
+  const session = await assertAdmin();
+  if (!session) {
+    return { success: false, message: "Only admin can update match date.", toastKey: Date.now() };
+  }
+
+  const parsed = updateArenaMatchDateSchema.safeParse({
+    matchId: formData.get("matchId"),
+    matchDate: formData.get("matchDate"),
+  });
+  if (!parsed.success) {
+    return {
+      success: false,
+      message: "Invalid input. Provide a match and a valid date.",
+      errors: parsed.error.flatten().fieldErrors as Record<string, string[]>,
+      toastKey: Date.now(),
+    };
+  }
+
+  const match = await db.arenaMatch.findUnique({
+    where: { id: parsed.data.matchId },
+    select: { id: true },
+  });
+  if (!match) {
+    return { success: false, message: "Match not found.", toastKey: Date.now() };
+  }
+
+  await db.arenaMatch.update({
+    where: { id: parsed.data.matchId },
+    data: { matchDate: new Date(parsed.data.matchDate) },
+  });
+  revalidatePath(ARENA_PATH, "page");
+  return { success: true, message: "Match date updated.", toastKey: Date.now() };
 }

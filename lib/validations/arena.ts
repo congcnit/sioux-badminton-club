@@ -89,6 +89,11 @@ export const challengeOpponentSchema = z
     opponentParticipantId: z.string().min(1, "Opponent is required"),
   });
 
+export const updateArenaMatchDateSchema = z.object({
+  matchId: z.string().min(1, "Match is required"),
+  matchDate: dateString,
+});
+
 export const completeArenaMatchSchema = z
   .object({
     matchId: z.string().min(1, "Match is required"),
@@ -113,4 +118,5 @@ export type UpdateArenaEventInput = z.infer<typeof updateArenaEventSchema>;
 export type SubmitArenaMatchInput = z.infer<typeof submitArenaMatchSchema>;
 export type CreateScheduledArenaMatchInput = z.infer<typeof createScheduledArenaMatchSchema>;
 export type ChallengeOpponentInput = z.infer<typeof challengeOpponentSchema>;
+export type UpdateArenaMatchDateInput = z.infer<typeof updateArenaMatchDateSchema>;
 export type CompleteArenaMatchInput = z.infer<typeof completeArenaMatchSchema>;

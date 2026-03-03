@@ -453,6 +453,8 @@ model ArenaMatch {
   opponentPointsAtMatch   Int?
   challengerPointsChange  Int?
   opponentPointsChange    Int?
+  /** Optional date for the match (scheduled or played). When set, used for display instead of createdAt. */
+  matchDate               DateTime?
   createdAt               DateTime          @default(now())
 
   arenaEvent ArenaEvent    @relation(fields: [arenaEventId], references: [id], onDelete: Cascade)
