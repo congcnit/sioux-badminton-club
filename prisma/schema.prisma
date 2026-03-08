@@ -93,6 +93,9 @@ model Member {
   rankings    Ranking[]
   arenaParticipants ArenaParticipant[]
   arenaHistoricalRankings ArenaHistoricalRanking[]
+  soloMatchesAsPlayer1 SoloMatch[] @relation("SoloPlayer1")
+  soloMatchesAsPlayer2 SoloMatch[] @relation("SoloPlayer2")
+  soloMatchesWon       SoloMatch[] @relation("SoloWinner")
 
   @@index([status])
   @@map("members")
@@ -465,6 +468,30 @@ model ArenaMatch {
   @@index([arenaEventId])
   @@index([arenaEventId, status])
   @@map("arena_matches")
+}
+
+model SoloMatch {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  year         Int
+  player1Id    String   @db.ObjectId
+  player2Id    String   @db.ObjectId
+  winnerId     String   @db.ObjectId
+  player1Score Int
+  player2Score Int
+  matchDate    DateTime
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  createdBy    String   @db.ObjectId
+
+  player1 Member @relation("SoloPlayer1", fields: [player1Id], references: [id], onDelete: Cascade)
+  player2 Member @relation("SoloPlayer2", fields: [player2Id], references: [id], onDelete: Cascade)
+  winner  Member @relation("SoloWinner",  fields: [winnerId],  references: [id], onDelete: Cascade)
+
+  @@index([year])
+  @@index([player1Id, year])
+  @@index([player2Id, year])
+  @@map("solo_matches")
 }
 
 model ArenaHistoricalRanking {

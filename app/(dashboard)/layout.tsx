@@ -11,7 +11,7 @@ const baseNavigation = [
   { href: "/budget", label: "Budget" },
   { href: "/fund", label: "Fund" },
   { href: "/members", label: "Members" },
-  { href: "/arena", label: "Arena" },
+  { href: "/solo", label: "Solo" },
 ];
 
 export default async function DashboardLayout({
