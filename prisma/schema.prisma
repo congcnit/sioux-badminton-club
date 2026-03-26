@@ -109,6 +109,7 @@ model BadmintonSession {
   endTime     DateTime?
   courtId     String?           @db.ObjectId
   notes       String?
+  registrationDeadline DateTime?
   status      SessionStatus     @default(SCHEDULED)
   createdBy   String?           @db.ObjectId
   createdAt   DateTime          @default(now())

@@ -76,6 +76,7 @@ export async function createSessionAction(
     sessionDate: formData.get("sessionDate"),
     startTime: formData.get("startTime"),
     endTime: formData.get("endTime"),
+    registrationDeadline: formData.get("registrationDeadline") || undefined,
     courtId: formData.get("courtId"),
     memberIds: formData.getAll("memberIds"),
     notes: formData.get("notes"),
@@ -130,6 +131,7 @@ export async function createSessionAction(
 
   const startTime = parseOptionalDateTime(parsed.data.startTime);
   const endTime = parseOptionalDateTime(parsed.data.endTime);
+  const registrationDeadline = parseOptionalDateTime(parsed.data.registrationDeadline);
 
   await db.badmintonSession.create({
     data: {
@@ -137,6 +139,7 @@ export async function createSessionAction(
       sessionDate: new Date(parsed.data.sessionDate),
       startTime,
       endTime,
+      registrationDeadline,
       courtId: court.id,
       notes: parsed.data.notes?.trim() || null,
       status: parsed.data.status,
@@ -271,13 +274,20 @@ export async function joinSessionAction(
 
   const session = await db.badmintonSession.findUnique({
     where: { id: parsed.data.sessionId },
-    select: { id: true, status: true },
+    select: { id: true, status: true, registrationDeadline: true },
   });
   if (!session) {
     return { success: false, message: "Session not found.", toastKey: Date.now() };
   }
   if (session.status !== SessionStatus.SCHEDULED) {
     return { success: false, message: "You can only join sessions that are scheduled.", toastKey: Date.now() };
+  }
+  if (session.registrationDeadline && new Date() > session.registrationDeadline) {
+    return {
+      success: false,
+      message: "The registration deadline for this session has passed.",
+      toastKey: Date.now(),
+    };
   }
 
   const note = parsed.data.note?.trim() || undefined;
@@ -321,6 +331,7 @@ export async function updateSessionAction(
     sessionDate: formData.get("sessionDate"),
     startTime: formData.get("startTime"),
     endTime: formData.get("endTime"),
+    registrationDeadline: formData.get("registrationDeadline") || undefined,
     courtId: formData.get("courtId"),
     memberIds: formData.getAll("memberIds"),
     notes: formData.get("notes"),
@@ -401,6 +412,7 @@ export async function updateSessionAction(
 
   const startTime = parseOptionalDateTime(parsed.data.startTime);
   const endTime = parseOptionalDateTime(parsed.data.endTime);
+  const registrationDeadline = parseOptionalDateTime(parsed.data.registrationDeadline);
 
   await db.$transaction(async (tx) => {
     await tx.badmintonSession.update({
@@ -410,6 +422,7 @@ export async function updateSessionAction(
         sessionDate,
         startTime,
         endTime,
+        registrationDeadline,
         courtId,
         notes: parsed.data.notes?.trim() || null,
         status: parsed.data.status,
@@ -541,6 +554,7 @@ export type SessionListItemSerialized = {
   sessionDate: string;
   startTime: string | null;
   endTime: string | null;
+  registrationDeadline: string | null;
   courtId: string | null;
   courtName: string | null;
   notes: string | null;
@@ -589,6 +603,7 @@ export async function getMoreSessionsAction(
     sessionDate: s.sessionDate.toISOString(),
     startTime: s.startTime?.toISOString() ?? null,
     endTime: s.endTime?.toISOString() ?? null,
+    registrationDeadline: s.registrationDeadline?.toISOString() ?? null,
     courtId: s.courtId ?? null,
     courtName: s.court?.name ?? null,
     notes: s.notes,

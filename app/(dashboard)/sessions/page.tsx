@@ -56,6 +56,7 @@ export default async function SessionsPage() {
     sessionDate: session.sessionDate,
     startTime: session.startTime,
     endTime: session.endTime,
+    registrationDeadline: session.registrationDeadline ?? null,
     courtId: session.courtId ?? null,
     courtName: session.court?.name ?? null,
     notes: session.notes,

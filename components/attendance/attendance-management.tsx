@@ -1,6 +1,13 @@
 "use client";
 
-import { startTransition, useActionState, useId, useState, useEffect, useRef } from "react";
+import {
+  startTransition,
+  useActionState,
+  useId,
+  useState,
+  useEffect,
+  useRef,
+} from "react";
 import { SessionAttendanceStatus, SessionStatus } from "@prisma/client";
 import { useRouter } from "next/navigation";
 
@@ -43,13 +50,19 @@ import {
 } from "@/components/ui/table";
 import { useActionToast } from "@/lib/use-action-toast";
 import { cn } from "@/lib/utils";
-import { CalendarCheck2, CalendarX2, Loader2 } from "lucide-react";
+import {
+  AlertTriangle,
+  CalendarCheck2,
+  CalendarX2,
+  Loader2,
+} from "lucide-react";
 
 type SessionListItem = {
   id: string;
   sessionDate: Date | string;
   startTime: Date | string | null;
   endTime: Date | string | null;
+  registrationDeadline: Date | string | null;
   courtId: string | null;
   courtName: string | null;
   notes: string | null;
@@ -164,7 +177,9 @@ function formatSessionDateWithWeekday(value: Date | string): string {
   const d = typeof value === "string" ? new Date(value) : value;
   if (Number.isNaN(d.getTime())) return "";
   const dateStr = d.toISOString().slice(0, 10);
-  const weekday = new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(d);
+  const weekday = new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(
+    d,
+  );
   return `${dateStr} (${weekday})`;
 }
 
@@ -184,6 +199,61 @@ function formatVnd(amount: number | null | undefined): string {
     currency: "VND",
     maximumFractionDigits: 0,
   }).format(amount);
+}
+
+function toDateTimeLocalValue(value: Date | string | null) {
+  if (value == null) return "";
+  const d = typeof value === "string" ? new Date(value) : value;
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function isRegistrationDeadlinePast(
+  deadline: Date | string | null | undefined,
+) {
+  if (deadline == null) return false;
+  const d = typeof deadline === "string" ? new Date(deadline) : deadline;
+  if (Number.isNaN(d.getTime())) return false;
+  return Date.now() > d.getTime();
+}
+
+function formatRegistrationDeadlineDisplay(deadline: Date | string) {
+  const d = typeof deadline === "string" ? new Date(deadline) : deadline;
+  if (Number.isNaN(d.getTime())) return "";
+  return new Intl.DateTimeFormat("en-GB", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(d);
+}
+
+function ScheduledRegistrationWarning({
+  session,
+}: {
+  session: SessionListItem;
+}) {
+  if (
+    session.status !== SessionStatus.SCHEDULED ||
+    !session.registrationDeadline
+  )
+    return null;
+  return (
+    <span
+      className={cn(
+        "inline-flex max-w-full items-start gap-1.5 font-medium sm:max-w-[min(100%,20rem)] sm:justify-end sm:text-right",
+        "text-amber-800 dark:text-amber-300",
+      )}
+    >
+      <AlertTriangle className="mt-0.5 size-4.5 shrink-0" aria-hidden />
+      <span className="min-w-0 leading-snug">
+        Register by{" "}
+        {formatRegistrationDeadlineDisplay(session.registrationDeadline)}
+        {isRegistrationDeadlinePast(session.registrationDeadline) ? (
+          <span className="text-destructive"> · Deadline passed</span>
+        ) : null}
+      </span>
+    </span>
+  );
 }
 
 function formatTimeRange(
@@ -211,7 +281,10 @@ function AttendanceEditableRow({
 }) {
   const formId = useId();
   const router = useRouter();
-  const [state, action, isPending] = useActionState(markAttendanceAction, initialInlineState);
+  const [state, action, isPending] = useActionState(
+    markAttendanceAction,
+    initialInlineState,
+  );
   useActionToast(state, {
     successPrefix: "Attendance updated",
     errorPrefix: "Unable to update attendance",
@@ -262,7 +335,12 @@ function AttendanceEditableRow({
         <form id={formId} action={action} className="flex items-center gap-2">
           <input type="hidden" name="sessionId" value={sessionId} />
           <input type="hidden" name="memberId" value={attendee.memberId} />
-          <Button type="submit" size="sm" disabled={isPending} aria-busy={isPending}>
+          <Button
+            type="submit"
+            size="sm"
+            disabled={isPending}
+            aria-busy={isPending}
+          >
             {isPending ? (
               <>
                 <Loader2 className="size-4 animate-spin" aria-hidden /> Saving…
@@ -292,7 +370,10 @@ function SessionEditDialog({
 }) {
   const formId = useId();
   const router = useRouter();
-  const [state, action, isPending] = useActionState(updateSessionAction, initialState);
+  const [state, action, isPending] = useActionState(
+    updateSessionAction,
+    initialState,
+  );
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const handledSuccessRef = useRef(false);
 
@@ -340,7 +421,8 @@ function SessionEditDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>Edit session</AlertDialogTitle>
           <AlertDialogDescription>
-            Update date, time, court, status, notes, and member list for this session.
+            Update date, time, court, status, notes, and member list for this
+            session.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <form
@@ -363,6 +445,15 @@ function SessionEditDialog({
                 new Date(`${sessionDate}T${end}:00`).toISOString(),
               );
             }
+            const regDl = fd.get("registrationDeadline");
+            if (regDl && String(regDl).trim() !== "") {
+              fd.set(
+                "registrationDeadline",
+                new Date(String(regDl)).toISOString(),
+              );
+            } else {
+              fd.set("registrationDeadline", "");
+            }
             startTransition(() => {
               action(fd);
             });
@@ -370,108 +461,133 @@ function SessionEditDialog({
         >
           <input type="hidden" name="sessionId" value={session.id} />
           <fieldset disabled={isPending} className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1">
-              <Label htmlFor="edit-session-date">
-                Session Date <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="edit-session-date"
-                name="sessionDate"
-                type="date"
-                defaultValue={toDateInputValue(session.sessionDate)}
-              />
-              {state.errors?.sessionDate ? (
-                <p className="text-xs text-destructive">{state.errors.sessionDate[0]}</p>
-              ) : null}
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="edit-session-court">Court</Label>
-              <select
-                id="edit-session-court"
-                name="courtId"
-                defaultValue={session.courtId ?? ""}
-                className="border-input bg-transparent h-9 w-full rounded-md border px-3 text-sm"
-              >
-                <option value="">No court</option>
-                {courts.map((court) => (
-                  <option key={court.id} value={court.id}>
-                    {court.name}
-                  </option>
-                ))}
-              </select>
-              {state.errors?.courtId ? (
-                <p className="text-xs text-destructive">{state.errors.courtId[0]}</p>
-              ) : null}
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="edit-session-start">Start Time</Label>
-              <Input
-                id="edit-session-start"
-                name="startTime"
-                type="time"
-                defaultValue={toTimeInputValue(session.startTime)}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="edit-session-end">End Time</Label>
-              <Input
-                id="edit-session-end"
-                name="endTime"
-                type="time"
-                defaultValue={toTimeInputValue(session.endTime)}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="edit-session-status">Status</Label>
-              <select
-                id="edit-session-status"
-                name="status"
-                defaultValue={session.status}
-                className="border-input bg-transparent h-9 w-full rounded-md border px-3 text-sm"
-              >
-                {sessionStatuses.map((value) => (
-                  <option key={value} value={value}>
-                    {value}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-1 sm:col-span-2">
-              <Label htmlFor="edit-session-notes">Notes</Label>
-              <Input
-                id="edit-session-notes"
-                name="notes"
-                placeholder="Optional notes"
-                defaultValue={session.notes ?? ""}
-                maxLength={500}
-              />
-            </div>
-            <div className="space-y-2 sm:col-span-2">
-              <Label>Members</Label>
-              <div className="grid max-h-40 gap-2 overflow-y-auto rounded-md border p-3 sm:grid-cols-2">
-                {members.map((member) => (
-                  <label
-                    key={member.id}
-                    className="flex items-center gap-2 text-sm text-foreground"
-                  >
-                    <input
-                      type="checkbox"
-                      name="memberIds"
-                      value={member.id}
-                      checked={selectedMemberIds.includes(member.id)}
-                      onChange={(e) => toggleMember(member.id, e.target.checked)}
-                      className="h-4 w-4 rounded border-input"
-                    />
-                    <span>{member.name}</span>
-                  </label>
-                ))}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <Label htmlFor="edit-session-date">
+                  Session Date <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="edit-session-date"
+                  name="sessionDate"
+                  type="date"
+                  defaultValue={toDateInputValue(session.sessionDate)}
+                />
+                {state.errors?.sessionDate ? (
+                  <p className="text-xs text-destructive">
+                    {state.errors.sessionDate[0]}
+                  </p>
+                ) : null}
               </div>
-              {state.errors?.memberIds ? (
-                <p className="text-xs text-destructive">{state.errors.memberIds[0]}</p>
-              ) : null}
+              <div className="space-y-1">
+                <Label htmlFor="edit-session-court">Court</Label>
+                <select
+                  id="edit-session-court"
+                  name="courtId"
+                  defaultValue={session.courtId ?? ""}
+                  className="border-input bg-transparent h-9 w-full rounded-md border px-3 text-sm"
+                >
+                  <option value="">No court</option>
+                  {courts.map((court) => (
+                    <option key={court.id} value={court.id}>
+                      {court.name}
+                    </option>
+                  ))}
+                </select>
+                {state.errors?.courtId ? (
+                  <p className="text-xs text-destructive">
+                    {state.errors.courtId[0]}
+                  </p>
+                ) : null}
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="edit-session-start">Start Time</Label>
+                <Input
+                  id="edit-session-start"
+                  name="startTime"
+                  type="time"
+                  defaultValue={toTimeInputValue(session.startTime)}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="edit-session-end">End Time</Label>
+                <Input
+                  id="edit-session-end"
+                  name="endTime"
+                  type="time"
+                  defaultValue={toTimeInputValue(session.endTime)}
+                />
+              </div>
+              <div className="space-y-1 sm:col-span-2">
+                <Label htmlFor="edit-registration-deadline">
+                  Registration deadline (optional)
+                </Label>
+                <Input
+                  id="edit-registration-deadline"
+                  name="registrationDeadline"
+                  type="datetime-local"
+                  defaultValue={toDateTimeLocalValue(
+                    session.registrationDeadline,
+                  )}
+                />
+                <p className="text-muted-foreground text-xs">
+                  Members can self-register until this moment. Leave empty for
+                  no deadline.
+                </p>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="edit-session-status">Status</Label>
+                <select
+                  id="edit-session-status"
+                  name="status"
+                  defaultValue={session.status}
+                  className="border-input bg-transparent h-9 w-full rounded-md border px-3 text-sm"
+                >
+                  {sessionStatuses.map((value) => (
+                    <option key={value} value={value}>
+                      {value}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1 sm:col-span-2">
+                <Label htmlFor="edit-session-notes">Notes</Label>
+                <Input
+                  id="edit-session-notes"
+                  name="notes"
+                  placeholder="Optional notes"
+                  defaultValue={session.notes ?? ""}
+                  maxLength={500}
+                />
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Members</Label>
+                <div className="grid max-h-40 gap-2 overflow-y-auto rounded-md border p-3 sm:grid-cols-2">
+                  {members.map((member) => (
+                    <label
+                      key={member.id}
+                      className="flex items-center gap-2 text-sm text-foreground"
+                    >
+                      <input
+                        type="checkbox"
+                        name="memberIds"
+                        value={member.id}
+                        checked={selectedMemberIds.includes(member.id)}
+                        onChange={(e) =>
+                          toggleMember(member.id, e.target.checked)
+                        }
+                        className="h-4 w-4 rounded border-input"
+                      />
+                      <span>{member.name}</span>
+                    </label>
+                  ))}
+                </div>
+                {state.errors?.memberIds ? (
+                  <p className="text-xs text-destructive">
+                    {state.errors.memberIds[0]}
+                  </p>
+                ) : null}
+              </div>
             </div>
-          </div>
           </fieldset>
           {state.message && !state.success ? (
             <p className="text-sm text-destructive">{state.message}</p>
@@ -480,10 +596,16 @@ function SessionEditDialog({
             <AlertDialogCancel type="button" disabled={isPending}>
               Cancel
             </AlertDialogCancel>
-            <Button type="submit" form={formId} disabled={isPending} aria-busy={isPending}>
+            <Button
+              type="submit"
+              form={formId}
+              disabled={isPending}
+              aria-busy={isPending}
+            >
               {isPending ? (
                 <>
-                  <Loader2 className="size-4 animate-spin" aria-hidden /> Saving…
+                  <Loader2 className="size-4 animate-spin" aria-hidden />{" "}
+                  Saving…
                 </>
               ) : (
                 "Save changes"
@@ -515,27 +637,37 @@ export function AttendanceManagement({
   currentMemberId,
 }: AttendanceManagementProps) {
   const router = useRouter();
-  const [sessionsList, setSessionsList] = useState<SessionListItem[]>(initialSessions);
+  const [sessionsList, setSessionsList] =
+    useState<SessionListItem[]>(initialSessions);
   const [loadingMore, setLoadingMore] = useState(false);
   const hasMore = totalSessionCount > sessionsList.length;
   const [sessionDate, setSessionDate] = useState("");
   const [startTime, setStartTime] = useState("07:00");
   const [endTime, setEndTime] = useState("09:00");
   const [courtId, setCourtId] = useState("");
-  const [sessionStatus, setSessionStatus] = useState<SessionStatus>(SessionStatus.SCHEDULED);
+  const [sessionStatus, setSessionStatus] = useState<SessionStatus>(
+    SessionStatus.SCHEDULED,
+  );
   const [notes, setNotes] = useState("");
   const [editOpen, setEditOpen] = useState(false);
-  const [editingSession, setEditingSession] = useState<SessionListItem | null>(null);
+  const [editingSession, setEditingSession] = useState<SessionListItem | null>(
+    null,
+  );
   const [joinModalOpen, setJoinModalOpen] = useState(false);
   const [joinSessionId, setJoinSessionId] = useState<string | null>(null);
   const [joinNote, setJoinNote] = useState("");
-  const [deleteDialogSessionId, setDeleteDialogSessionId] = useState<string | null>(null);
+  const [deleteDialogSessionId, setDeleteDialogSessionId] = useState<
+    string | null
+  >(null);
 
   const [state, createSessionFormAction, createSessionPending] = useActionState(
     createSessionAction,
     initialState,
   );
-  const [joinState, joinAction, joinPending] = useActionState(joinSessionAction, initialJoinState);
+  const [joinState, joinAction, joinPending] = useActionState(
+    joinSessionAction,
+    initialJoinState,
+  );
   const [deleteState, deleteAction, deletePending] = useActionState(
     deleteSessionAction,
     initialDeleteState,
@@ -576,7 +708,10 @@ export function AttendanceManagement({
     if (loadingMore || !hasMore) return;
     setLoadingMore(true);
     try {
-      const { sessions: next } = await getMoreSessionsAction(sessionsList.length, limitStep);
+      const { sessions: next } = await getMoreSessionsAction(
+        sessionsList.length,
+        limitStep,
+      );
       setSessionsList((prev) => [...prev, ...next]);
     } finally {
       setLoadingMore(false);
@@ -615,120 +750,150 @@ export function AttendanceManagement({
                   new Date(`${sessionDate}T${end}:00`).toISOString(),
                 );
               }
+              const regDl = fd.get("registrationDeadline");
+              if (regDl && String(regDl).trim() !== "") {
+                fd.set(
+                  "registrationDeadline",
+                  new Date(String(regDl)).toISOString(),
+                );
+              } else {
+                fd.set("registrationDeadline", "");
+              }
               startTransition(() => {
                 createSessionFormAction(fd);
               });
             }}
           >
-          <fieldset disabled={createSessionPending} className="space-y-4">
-          <legend className="sr-only">Create session</legend>
-          <h2 className="text-lg font-medium">Create session</h2>
-          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-          <div className="space-y-1">
-            <Label htmlFor="session-date">
-              Session Date <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              id="session-date"
-              name="sessionDate"
-              type="date"
-              value={sessionDate}
-              onChange={(event) => setSessionDate(event.target.value)}
-            />
-            {state.errors?.sessionDate ? (
-              <p className="text-xs text-destructive">{state.errors.sessionDate[0]}</p>
+            <fieldset disabled={createSessionPending} className="space-y-4">
+              <legend className="sr-only">Create session</legend>
+              <h2 className="text-lg font-medium">Create session</h2>
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                <div className="space-y-1">
+                  <Label htmlFor="session-date">
+                    Session Date <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="session-date"
+                    name="sessionDate"
+                    type="date"
+                    value={sessionDate}
+                    onChange={(event) => setSessionDate(event.target.value)}
+                  />
+                  {state.errors?.sessionDate ? (
+                    <p className="text-xs text-destructive">
+                      {state.errors.sessionDate[0]}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="session-start">Start Time</Label>
+                  <Input
+                    id="session-start"
+                    name="startTime"
+                    type="time"
+                    value={startTime}
+                    onChange={(event) => setStartTime(event.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="session-end">End Time</Label>
+                  <Input
+                    id="session-end"
+                    name="endTime"
+                    type="time"
+                    value={endTime}
+                    onChange={(event) => setEndTime(event.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="session-court">
+                    Court <span className="text-destructive">*</span>
+                  </Label>
+                  <select
+                    id="session-court"
+                    name="courtId"
+                    value={courtId}
+                    onChange={(event) => setCourtId(event.target.value)}
+                    className="border-input bg-transparent h-9 w-full rounded-md border px-3 text-sm"
+                  >
+                    <option value="" disabled>
+                      Select court
+                    </option>
+                    {courts.map((court) => (
+                      <option key={court.id} value={court.id}>
+                        {court.name}
+                      </option>
+                    ))}
+                  </select>
+                  {state.errors?.courtId ? (
+                    <p className="text-xs text-destructive">
+                      {state.errors.courtId[0]}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="session-status">Status</Label>
+                  <select
+                    id="session-status"
+                    name="status"
+                    value={sessionStatus}
+                    onChange={(event) =>
+                      setSessionStatus(event.target.value as SessionStatus)
+                    }
+                    className="border-input bg-transparent h-9 w-full rounded-md border px-3 text-sm"
+                  >
+                    {sessionStatuses.map((value) => (
+                      <option key={value} value={value}>
+                        {value}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1 md:col-span-2 lg:col-span-3">
+                  <Label htmlFor="session-registration-deadline">
+                    Registration deadline (optional)
+                  </Label>
+                  <Input
+                    id="session-registration-deadline"
+                    name="registrationDeadline"
+                    type="datetime-local"
+                  />
+                  <p className="text-muted-foreground text-xs">
+                    Members can self-register until this moment. Leave empty for
+                    no deadline.
+                  </p>
+                </div>
+                <div className="space-y-1 md:col-span-2 lg:col-span-3">
+                  <Label htmlFor="session-notes">Notes</Label>
+                  <Input
+                    id="session-notes"
+                    name="notes"
+                    placeholder="Optional notes"
+                    value={notes}
+                    onChange={(event) => setNotes(event.target.value)}
+                  />
+                </div>
+              </div>
+            </fieldset>
+            {state.message && !state.success ? (
+              <p className="text-sm text-destructive">{state.message}</p>
             ) : null}
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="session-start">Start Time</Label>
-            <Input
-              id="session-start"
-              name="startTime"
-              type="time"
-              value={startTime}
-              onChange={(event) => setStartTime(event.target.value)}
-            />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="session-end">End Time</Label>
-            <Input
-              id="session-end"
-              name="endTime"
-              type="time"
-              value={endTime}
-              onChange={(event) => setEndTime(event.target.value)}
-            />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="session-court">
-              Court <span className="text-destructive">*</span>
-            </Label>
-            <select
-              id="session-court"
-              name="courtId"
-              value={courtId}
-              onChange={(event) => setCourtId(event.target.value)}
-              className="border-input bg-transparent h-9 w-full rounded-md border px-3 text-sm"
+            <Button
+              type="submit"
+              variant="sport"
+              disabled={createSessionPending}
+              aria-busy={createSessionPending}
             >
-              <option value="" disabled>
-                Select court
-              </option>
-              {courts.map((court) => (
-                <option key={court.id} value={court.id}>
-                  {court.name}
-                </option>
-              ))}
-            </select>
-            {state.errors?.courtId ? (
-              <p className="text-xs text-destructive">{state.errors.courtId[0]}</p>
-            ) : null}
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="session-status">Status</Label>
-            <select
-              id="session-status"
-              name="status"
-              value={sessionStatus}
-              onChange={(event) => setSessionStatus(event.target.value as SessionStatus)}
-              className="border-input bg-transparent h-9 w-full rounded-md border px-3 text-sm"
-            >
-              {sessionStatuses.map((value) => (
-                <option key={value} value={value}>
-                  {value}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-1 md:col-span-2 lg:col-span-3">
-            <Label htmlFor="session-notes">Notes</Label>
-            <Input
-              id="session-notes"
-              name="notes"
-              placeholder="Optional notes"
-              value={notes}
-              onChange={(event) => setNotes(event.target.value)}
-            />
-          </div>
-          </div>
-          </fieldset>
-          {state.message && !state.success ? (
-            <p className="text-sm text-destructive">{state.message}</p>
-          ) : null}
-          <Button
-            type="submit"
-            variant="sport"
-            disabled={createSessionPending}
-            aria-busy={createSessionPending}
-          >
-            {createSessionPending ? (
-              <>
-                <Loader2 className="size-4 animate-spin" aria-hidden /> Creating…
-              </>
-            ) : (
-              "Create session"
-            )}
-          </Button>
-        </form>
+              {createSessionPending ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" aria-hidden />{" "}
+                  Creating…
+                </>
+              ) : (
+                "Create session"
+              )}
+            </Button>
+          </form>
         </SportCard>
       ) : null}
 
@@ -771,7 +936,11 @@ export function AttendanceManagement({
                   Add an optional note, then confirm to join.
                 </AlertDialogDescription>
               </AlertDialogHeader>
-              <input type="hidden" name="sessionId" value={joinSessionId ?? ""} />
+              <input
+                type="hidden"
+                name="sessionId"
+                value={joinSessionId ?? ""}
+              />
               <div className="space-y-2 py-2">
                 <Label htmlFor="join-note">Note</Label>
                 <textarea
@@ -789,10 +958,15 @@ export function AttendanceManagement({
                 <AlertDialogCancel type="button" disabled={joinPending}>
                   Cancel
                 </AlertDialogCancel>
-                <Button type="submit" disabled={joinPending} aria-busy={joinPending}>
+                <Button
+                  type="submit"
+                  disabled={joinPending}
+                  aria-busy={joinPending}
+                >
                   {joinPending ? (
                     <>
-                      <Loader2 className="size-4 animate-spin" aria-hidden /> Joining…
+                      <Loader2 className="size-4 animate-spin" aria-hidden />{" "}
+                      Joining…
                     </>
                   ) : (
                     "Confirm"
@@ -805,11 +979,14 @@ export function AttendanceManagement({
       ) : null}
 
       {sessionsList.map((session) => (
-        <SportCard key={session.id} variant="leaderboard" className="overflow-hidden">
+        <SportCard
+          key={session.id}
+          variant="leaderboard"
+          className="overflow-hidden"
+        >
           <div className="space-y-3 p-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
+            <div className="flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-2">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <h3 className="text-lg font-medium">
                   {formatSessionDateWithWeekday(session.sessionDate)}
                 </h3>
@@ -822,147 +999,171 @@ export function AttendanceManagement({
                   {session.status}
                 </span>
               </div>
-              <p className="mt-2 rounded-lg border border-border/60 bg-muted/40 px-3 py-2 text-sm font-medium text-foreground">
-                <span className="text-muted-foreground">Court:</span> {session.courtName ?? "No court"}
-                <span className="mx-2 text-muted-foreground">·</span>
-                <span className="text-muted-foreground">Time:</span> {formatTimeRange(session.startTime, session.endTime)}
-                <span className="mx-2 text-muted-foreground">·</span>
-                <span className="text-muted-foreground">Note:</span> {session.notes?.trim() ? session.notes : "-"}
-              </p>
-            </div>
-            <div className="flex flex-shrink-0 items-center gap-2">
-              <span className="text-muted-foreground text-sm"># attendees: {session.attendees.length}</span>
-            {!canManage &&
-            session.status === SessionStatus.SCHEDULED &&
-            currentMemberId != null &&
-            !session.attendees.some((a) => a.memberId === currentMemberId) ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="default"
-                onClick={() => {
-                  setJoinSessionId(session.id);
-                  setJoinNote("");
-                  setJoinModalOpen(true);
-                }}
-              >
-                <CalendarCheck2 className="mr-1.5 size-4" aria-hidden />
-                Join Session
-              </Button>
-            ) : null}
-            {canManage ? (
-              <>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setEditingSession(session);
-                    setEditOpen(true);
-                  }}
-                >
-                  Edit Session
-                </Button>
-                <AlertDialog
-                  open={deleteDialogSessionId === session.id}
-                  onOpenChange={(open) => {
-                    if (!open) setDeleteDialogSessionId(null);
-                  }}
-                >
-                  <AlertDialogTrigger asChild>
+              <ScheduledRegistrationWarning session={session} />
+              <div className="flex flex-shrink-0 flex-wrap items-center gap-2">
+                <span className="text-muted-foreground text-sm">
+                  # attendees: {session.attendees.length}
+                </span>
+                {!canManage &&
+                session.status === SessionStatus.SCHEDULED &&
+                currentMemberId != null &&
+                !session.attendees.some(
+                  (a) => a.memberId === currentMemberId,
+                ) &&
+                !isRegistrationDeadlinePast(session.registrationDeadline) ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="default"
+                    onClick={() => {
+                      setJoinSessionId(session.id);
+                      setJoinNote("");
+                      setJoinModalOpen(true);
+                    }}
+                  >
+                    <CalendarCheck2 className="mr-1.5 size-4" aria-hidden />
+                    Join Session
+                  </Button>
+                ) : null}
+                {canManage ? (
+                  <>
                     <Button
                       type="button"
                       size="sm"
-                      variant="destructive"
-                      onClick={() => setDeleteDialogSessionId(session.id)}
+                      variant="outline"
+                      onClick={() => {
+                        setEditingSession(session);
+                        setEditOpen(true);
+                      }}
                     >
-                      Delete Session
+                      Edit Session
                     </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent
-                    size="sm"
-                    onOverlayClick={() => setDeleteDialogSessionId(null)}
-                  >
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Delete this session?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This action cannot be undone. Attendance records for this session will also be removed.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel disabled={deletePending}>Cancel</AlertDialogCancel>
-                      <AlertDialogAction asChild variant="destructive">
-                        <form action={deleteAction}>
-                          <input type="hidden" name="sessionId" value={session.id} />
-                          <button
-                            type="submit"
-                            disabled={deletePending}
-                            aria-busy={deletePending}
-                            className="inline-flex items-center justify-center gap-2"
-                          >
-                            {deletePending ? (
-                              <>
-                                <Loader2 className="size-4 animate-spin" aria-hidden /> Deleting…
-                              </>
-                            ) : (
-                              "Delete"
-                            )}
-                          </button>
-                        </form>
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </>
-            ) : null}
-            </div>
-          </div>
-
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Member</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Fine Amount</TableHead>
-                <TableHead>Note</TableHead>
-                {canManage ? <TableHead>Action</TableHead> : null}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {session.attendees.map((attendee) => (
-                canManage ? (
-                  <AttendanceEditableRow
-                    key={`${session.id}-${attendee.memberId}`}
-                    sessionId={session.id}
-                    attendee={attendee}
-                  />
-                ) : (
-                  <TableRow key={`${session.id}-${attendee.memberId}`}>
-                    <TableCell>{attendee.memberName}</TableCell>
-                    <TableCell>
-                      <span
-                        className={cn(
-                          "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-                          attendanceStatusChipClass(attendee.status),
-                        )}
+                    <AlertDialog
+                      open={deleteDialogSessionId === session.id}
+                      onOpenChange={(open) => {
+                        if (!open) setDeleteDialogSessionId(null);
+                      }}
+                    >
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => setDeleteDialogSessionId(session.id)}
+                        >
+                          Delete Session
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent
+                        size="sm"
+                        onOverlayClick={() => setDeleteDialogSessionId(null)}
                       >
-                        {attendanceStatusLabel(attendee.status)}
-                      </span>
-                    </TableCell>
-                    <TableCell>{formatVnd(attendee.fineAmount)}</TableCell>
-                    <TableCell>{attendee.note ?? "-"}</TableCell>
-                  </TableRow>
-                )
-              ))}
-              {session.attendees.length === 0 ? (
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>
+                            Delete this session?
+                          </AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This action cannot be undone. Attendance records for
+                            this session will also be removed.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel disabled={deletePending}>
+                            Cancel
+                          </AlertDialogCancel>
+                          <AlertDialogAction asChild variant="destructive">
+                            <form action={deleteAction}>
+                              <input
+                                type="hidden"
+                                name="sessionId"
+                                value={session.id}
+                              />
+                              <button
+                                type="submit"
+                                disabled={deletePending}
+                                aria-busy={deletePending}
+                                className="inline-flex items-center justify-center gap-2"
+                              >
+                                {deletePending ? (
+                                  <>
+                                    <Loader2
+                                      className="size-4 animate-spin"
+                                      aria-hidden
+                                    />{" "}
+                                    Deleting…
+                                  </>
+                                ) : (
+                                  "Delete"
+                                )}
+                              </button>
+                            </form>
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </>
+                ) : null}
+              </div>
+            </div>
+            <p className="rounded-lg border border-border/60 bg-muted/40 px-3 py-2 text-sm font-medium text-foreground">
+              <span className="text-muted-foreground">Court:</span>{" "}
+              {session.courtName ?? "No court"}
+              <span className="mx-2 text-muted-foreground">·</span>
+              <span className="text-muted-foreground">Time:</span>{" "}
+              {formatTimeRange(session.startTime, session.endTime)}
+              <span className="mx-2 text-muted-foreground">·</span>
+              <span className="text-muted-foreground">Note:</span>{" "}
+              {session.notes?.trim() ? session.notes : "-"}
+            </p>
+
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={canManage ? 5 : 4} className="text-center text-muted-foreground">
-                    No one has joined this session yet.
-                  </TableCell>
+                  <TableHead>Member</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Fine Amount</TableHead>
+                  <TableHead>Note</TableHead>
+                  {canManage ? <TableHead>Action</TableHead> : null}
                 </TableRow>
-              ) : null}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {session.attendees.map((attendee) =>
+                  canManage ? (
+                    <AttendanceEditableRow
+                      key={`${session.id}-${attendee.memberId}`}
+                      sessionId={session.id}
+                      attendee={attendee}
+                    />
+                  ) : (
+                    <TableRow key={`${session.id}-${attendee.memberId}`}>
+                      <TableCell>{attendee.memberName}</TableCell>
+                      <TableCell>
+                        <span
+                          className={cn(
+                            "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
+                            attendanceStatusChipClass(attendee.status),
+                          )}
+                        >
+                          {attendanceStatusLabel(attendee.status)}
+                        </span>
+                      </TableCell>
+                      <TableCell>{formatVnd(attendee.fineAmount)}</TableCell>
+                      <TableCell>{attendee.note ?? "-"}</TableCell>
+                    </TableRow>
+                  ),
+                )}
+                {session.attendees.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={canManage ? 5 : 4}
+                      className="text-center text-muted-foreground"
+                    >
+                      No one has joined this session yet.
+                    </TableCell>
+                  </TableRow>
+                ) : null}
+              </TableBody>
+            </Table>
           </div>
         </SportCard>
       ))}
