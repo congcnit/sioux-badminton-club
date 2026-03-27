@@ -240,11 +240,11 @@ function ScheduledRegistrationWarning({
   return (
     <span
       className={cn(
-        "inline-flex max-w-full items-start gap-1.5 font-medium sm:max-w-[min(100%,20rem)] sm:justify-end sm:text-right",
+        "inline-flex max-w-full items-start text-xs gap-1.5 font-medium sm:max-w-[min(100%,20rem)] sm:justify-end sm:text-right",
         "text-amber-800 dark:text-amber-300",
       )}
     >
-      <AlertTriangle className="mt-0.5 size-4.5 shrink-0" aria-hidden />
+      <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
       <span className="min-w-0 leading-snug">
         Register by{" "}
         {formatRegistrationDeadlineDisplay(session.registrationDeadline)}
