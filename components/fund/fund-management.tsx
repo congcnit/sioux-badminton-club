@@ -37,13 +37,116 @@ import {
 } from "@/components/ui/table";
 import { isIncomeType } from "@/lib/fund-service";
 import { useActionToast } from "@/lib/use-action-toast";
-import { HandCoins } from "lucide-react";
+import { HandCoins, Sparkles } from "lucide-react";
 
 import { FundCategoryCharts } from "@/components/fund/fund-category-charts";
 import { FundTransactionForm } from "@/components/fund/fund-transaction-form";
 import type { FundCategoryPoint } from "@/lib/fund-service";
 
 const fundInitialState: FundActionState = { success: false, message: "" };
+
+const donationAnimationStyles = `
+  @keyframes donation-sweep {
+    0%   { background-position: 200% center; }
+    100% { background-position: -200% center; }
+  }
+  @keyframes donation-border-pulse {
+    0%, 100% { opacity: 0.5; }
+    50%       { opacity: 1; }
+  }
+  @keyframes donation-chip-gradient {
+    0%   { background-position: 0% center; }
+    100% { background-position: -200% center; }
+  }
+  @keyframes donation-border-glimmer {
+    0%   { background-position: 0% center; }
+    100% { background-position: -200% center; }
+  }
+  .donation-row {
+    position: relative;
+    background: linear-gradient(
+      90deg,
+      rgba(253, 224, 71, 0.15) 0%,
+      rgba(253, 224, 71, 0.15) 35%,
+      rgba(253, 224, 71, 0.32) 50%,
+      rgba(253, 224, 71, 0.15) 65%,
+      rgba(253, 224, 71, 0.15) 100%
+    ) !important;
+    background-size: 250% 100% !important;
+    animation: donation-sweep 3.8s ease-in-out infinite;
+  }
+  .donation-row td:first-child {
+    border-left: 2px solid rgba(234, 179, 8, 0.8) !important;
+    animation: donation-border-pulse 2.8s ease-in-out infinite;
+  }
+  .donation-chip {
+    position: relative;
+    z-index: 0;
+    background: linear-gradient(
+      90deg,
+      #f59e0b,
+      #fde047,
+      #fef08a,
+      #fde047,
+      #f59e0b,
+      #fde047,
+      #fef08a,
+      #fde047,
+      #f59e0b
+    ) !important;
+    background-size: 300% auto !important;
+    animation: donation-chip-gradient 3.8s linear infinite;
+    color: #713f12 !important;
+    border-color: transparent !important;
+  }
+  .donation-chip::before {
+    content: '';
+    position: absolute;
+    inset: -1.5px;
+    border-radius: 9999px;
+    background: linear-gradient(
+      90deg,
+      #f59e0b,
+      #fde047,
+      #fffbeb,
+      #fde047,
+      #f59e0b,
+      #fde047,
+      #fffbeb,
+      #fde047,
+      #f59e0b
+    );
+    background-size: 300% auto;
+    animation: donation-border-glimmer 3.8s linear infinite;
+    z-index: -1;
+  }
+  .donation-chip::after {
+    content: '';
+    position: absolute;
+    inset: -1.5px;
+    border-radius: 9999px;
+    background: linear-gradient(
+      90deg,
+      #f59e0b,
+      #fde047,
+      #fffbeb,
+      #fde047,
+      #f59e0b,
+      #fde047,
+      #fffbeb,
+      #fde047,
+      #f59e0b
+    );
+    background-size: 300% auto;
+    animation: donation-border-glimmer 3.8s linear infinite;
+    z-index: -2;
+    filter: blur(4px);
+    opacity: 0.6;
+  }
+  .dark .donation-chip {
+    color: #422006 !important;
+  }
+`;
 
 const chipBase =
   "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium";
@@ -57,7 +160,7 @@ function fundTypeChipClass(type: FundTransactionType) {
 function fundCategoryChipClass(category: FundTransactionCategory) {
   switch (category) {
     case "DONATION":
-      return "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/40";
+      return "bg-yellow-400/20 text-yellow-700 dark:text-yellow-300 border border-yellow-400/50";
     case "FINE":
       return "bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/40";
     case "GUEST_FEE":
@@ -143,8 +246,14 @@ export function FundManagement({
   const renderTransactionRows = (list: FundTransaction[]) =>
     list.map((tx) => {
       const formId = `update-fund-${tx.id}`;
+      const isDonationIncome =
+        tx.category === FundTransactionCategory.DONATION &&
+        tx.type === FundTransactionType.INCOME;
       return canManage ? (
-        <TableRow key={tx.id}>
+        <TableRow
+          key={tx.id}
+          className={isDonationIncome ? "donation-row" : ""}
+        >
           <TableCell className="align-middle">
             <form id={formId} action={updateAction}>
               <input type="hidden" name="transactionId" value={tx.id} />
@@ -257,7 +366,10 @@ export function FundManagement({
           </TableCell>
         </TableRow>
       ) : (
-        <TableRow key={tx.id}>
+        <TableRow
+          key={tx.id}
+          className={isDonationIncome ? "donation-row" : ""}
+        >
           <TableCell>{tx.date.toISOString().slice(0, 10)}</TableCell>
           <TableCell>
             <span className={`${chipBase} ${fundTypeChipClass(tx.type)}`}>
@@ -266,8 +378,11 @@ export function FundManagement({
           </TableCell>
           <TableCell>
             <span
-              className={`${chipBase} ${fundCategoryChipClass(tx.category)}`}
+              className={`${chipBase} ${fundCategoryChipClass(tx.category)} ${isDonationIncome ? "donation-chip" : ""}`}
             >
+              {isDonationIncome && (
+                <Sparkles className="mr-1 h-3 w-3 animate-pulse text-yellow-900 dark:text-yellow-200" />
+              )}
               {tx.category.replace(/_/g, " ")}
             </span>
           </TableCell>
@@ -333,6 +448,7 @@ export function FundManagement({
 
   return (
     <section className="space-y-8">
+      <style dangerouslySetInnerHTML={{ __html: donationAnimationStyles }} />
       <div>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
           Club Fund
