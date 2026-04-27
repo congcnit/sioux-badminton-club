@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import Image from "next/image";
+import { Loader2 } from "lucide-react";
 
 import {
   type AccountActionState,
@@ -32,7 +33,7 @@ export function ProfileForm({
   phone,
   dateOfBirth,
 }: ProfileFormProps) {
-  const [state, action] = useActionState(updateProfileAction, initialState);
+  const [state, action, isPending] = useActionState(updateProfileAction, initialState);
   useActionToast(state, {
     successPrefix: "Profile updated",
     errorPrefix: "Unable to update profile",
@@ -40,74 +41,86 @@ export function ProfileForm({
 
   return (
     <form action={action} className="space-y-4 rounded-xl border border-border/80 bg-card/80 p-5 shadow-md backdrop-blur-sm transition-shadow hover:shadow-lg">
-      <h2 className="text-lg font-medium">Profile Information</h2>
-      <div className="space-y-2">
-        <Label htmlFor="avatar">Avatar</Label>
-        <div className="flex items-center gap-3">
-          <span className="inline-flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border bg-muted text-sm font-medium">
-            {avatar ? (
-              <Image
-                src={avatar}
-                alt="Current avatar"
-                className="h-full w-full object-cover"
-                width={48}
-                height={48}
-                unoptimized
-              />
-            ) : (
-              (name?.trim()?.[0] ?? email[0] ?? "U").toUpperCase()
-            )}
-          </span>
+      <fieldset disabled={isPending} className="min-w-0 space-y-4 border-0 p-0">
+        <legend className="sr-only">Profile information</legend>
+        <h2 className="text-lg font-medium">Profile Information</h2>
+        <div className="space-y-2">
+          <Label htmlFor="avatar">Avatar</Label>
+          <div className="flex items-center gap-3">
+            <span className="inline-flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border bg-muted text-sm font-medium">
+              {avatar ? (
+                <Image
+                  src={avatar}
+                  alt="Current avatar"
+                  className="h-full w-full object-cover"
+                  width={48}
+                  height={48}
+                  unoptimized
+                />
+              ) : (
+                (name?.trim()?.[0] ?? email[0] ?? "U").toUpperCase()
+              )}
+            </span>
+            <div className="space-y-1">
+              <Input id="avatar" name="avatar" type="file" accept="image/*" />
+              <p className="text-xs text-muted-foreground">
+                JPG/PNG/WebP up to 500KB.
+              </p>
+            </div>
+          </div>
+          {state.errors?.avatar ? (
+            <p className="text-xs text-destructive">{state.errors.avatar[0]}</p>
+          ) : null}
+        </div>
+        <div className="grid gap-3 md:grid-cols-2">
           <div className="space-y-1">
-            <Input id="avatar" name="avatar" type="file" accept="image/*" />
-            <p className="text-xs text-muted-foreground">
-              JPG/PNG/WebP up to 500KB.
-            </p>
+            <Label htmlFor="name">Display name</Label>
+            <Input id="name" name="name" defaultValue={name} />
+            {state.errors?.name ? (
+              <p className="text-xs text-destructive">{state.errors.name[0]}</p>
+            ) : null}
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="email">Email</Label>
+            <Input id="email" name="email" type="email" defaultValue={email} />
+            {state.errors?.email ? (
+              <p className="text-xs text-destructive">{state.errors.email[0]}</p>
+            ) : null}
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="phone">Phone</Label>
+            <Input id="phone" name="phone" defaultValue={phone} />
+            {state.errors?.phone ? (
+              <p className="text-xs text-destructive">{state.errors.phone[0]}</p>
+            ) : null}
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="dateOfBirth">Date of birth</Label>
+            <Input
+              id="dateOfBirth"
+              name="dateOfBirth"
+              type="date"
+              defaultValue={dateOfBirth}
+            />
+            {state.errors?.dateOfBirth ? (
+              <p className="text-xs text-destructive">{state.errors.dateOfBirth[0]}</p>
+            ) : null}
           </div>
         </div>
-        {state.errors?.avatar ? (
-          <p className="text-xs text-destructive">{state.errors.avatar[0]}</p>
-        ) : null}
-      </div>
-      <div className="grid gap-3 md:grid-cols-2">
-        <div className="space-y-1">
-          <Label htmlFor="name">Display name</Label>
-          <Input id="name" name="name" defaultValue={name} />
-          {state.errors?.name ? (
-            <p className="text-xs text-destructive">{state.errors.name[0]}</p>
-          ) : null}
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="email">Email</Label>
-          <Input id="email" name="email" type="email" defaultValue={email} />
-          {state.errors?.email ? (
-            <p className="text-xs text-destructive">{state.errors.email[0]}</p>
-          ) : null}
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="phone">Phone</Label>
-          <Input id="phone" name="phone" defaultValue={phone} />
-          {state.errors?.phone ? (
-            <p className="text-xs text-destructive">{state.errors.phone[0]}</p>
-          ) : null}
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="dateOfBirth">Date of birth</Label>
-          <Input
-            id="dateOfBirth"
-            name="dateOfBirth"
-            type="date"
-            defaultValue={dateOfBirth}
-          />
-          {state.errors?.dateOfBirth ? (
-            <p className="text-xs text-destructive">{state.errors.dateOfBirth[0]}</p>
-          ) : null}
-        </div>
-      </div>
+      </fieldset>
       {state.message && !state.success ? (
         <p className="text-sm text-destructive">{state.message}</p>
       ) : null}
-      <Button type="submit" variant="sport">Save profile</Button>
+      <Button type="submit" disabled={isPending} aria-busy={isPending}>
+        {isPending ? (
+          <>
+            <Loader2 className="size-4 animate-spin" aria-hidden />
+            Saving…
+          </>
+        ) : (
+          "Save profile"
+        )}
+      </Button>
     </form>
   );
 }
