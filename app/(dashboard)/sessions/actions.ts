@@ -10,6 +10,7 @@ import { revalidatePath } from "next/cache";
 
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { isActiveMemberWithUser } from "@/lib/prisma-scope";
 import {
   createSessionSchema,
   deleteSessionSchema,
@@ -108,7 +109,7 @@ export async function createSessionAction(
 
   const selectedMemberIds = Array.from(new Set(parsed.data.memberIds));
 
-  const selectedMembers = await db.member.findMany({
+  const selectedRows = await db.member.findMany({
     where: {
       id: { in: selectedMemberIds },
       user: {
@@ -117,8 +118,14 @@ export async function createSessionAction(
         },
       },
     },
-    select: { id: true },
+    select: {
+      id: true,
+      deletedAt: true,
+      user: { select: { deletedAt: true } },
+    },
   });
+
+  const selectedMembers = selectedRows.filter(isActiveMemberWithUser);
 
   if (selectedMembers.length !== selectedMemberIds.length) {
     return {
@@ -185,17 +192,22 @@ export async function markAttendanceAction(
     return { success: false, message: "Invalid attendance data." };
   }
 
-  const targetMember = await db.member.findUnique({
+  const targetMember = await db.member.findFirst({
     where: { id: parsed.data.memberId },
     select: {
       id: true,
+      deletedAt: true,
       user: {
-        select: { role: true },
+        select: { role: true, deletedAt: true },
       },
     },
   });
 
-  if (!targetMember || targetMember.user.role === Role.ADMIN) {
+  if (
+    !targetMember ||
+    !isActiveMemberWithUser(targetMember) ||
+    targetMember.user.role === Role.ADMIN
+  ) {
     return { success: false, message: "Invalid member." };
   }
 
@@ -255,11 +267,15 @@ export async function joinSessionAction(
     return { success: false, message: "Admins join via session edit; use the sessions list.", toastKey: Date.now() };
   }
 
-  const member = await db.member.findUnique({
+  const member = await db.member.findFirst({
     where: { userId: actor.user.id },
-    select: { id: true },
+    select: {
+      id: true,
+      deletedAt: true,
+      user: { select: { deletedAt: true } },
+    },
   });
-  if (!member) {
+  if (!member || !isActiveMemberWithUser(member)) {
     return { success: false, message: "You must have a member profile to join a session.", toastKey: Date.now() };
   }
 
@@ -382,7 +398,7 @@ export async function updateSessionAction(
 
   const selectedMemberIds = Array.from(new Set(parsed.data.memberIds));
 
-  const selectedMembers = await db.member.findMany({
+  const selectedRows = await db.member.findMany({
     where: {
       id: { in: selectedMemberIds },
       user: {
@@ -391,8 +407,14 @@ export async function updateSessionAction(
         },
       },
     },
-    select: { id: true },
+    select: {
+      id: true,
+      deletedAt: true,
+      user: { select: { deletedAt: true } },
+    },
   });
+
+  const selectedMembers = selectedRows.filter(isActiveMemberWithUser);
 
   if (selectedMembers.length !== selectedMemberIds.length) {
     return {

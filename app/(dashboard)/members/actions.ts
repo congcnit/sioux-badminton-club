@@ -1,11 +1,12 @@
 "use server";
 
-import { Gender, MemberStatus, Prisma, Role } from "@prisma/client";
+import { MemberStatus, Prisma, Role } from "@prisma/client";
 import { hash } from "bcrypt";
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 
 import { authOptions } from "@/lib/auth";
+import { archivedUserEmail, isActiveMemberWithUser } from "@/lib/prisma-scope";
 import { db } from "@/lib/db";
 import {
   createMemberSchema,
@@ -185,10 +186,21 @@ export async function updateMemberAction(
   }
 
   try {
-    const currentMember = await db.member.findUnique({
+    const currentMember = await db.member.findFirst({
       where: { id: parsed.data.memberId },
-      select: { memberCode: true },
+      select: {
+        memberCode: true,
+        deletedAt: true,
+        user: { select: { deletedAt: true } },
+      },
     });
+    if (!currentMember || !isActiveMemberWithUser(currentMember)) {
+      return {
+        success: false,
+        message: "Member not found or already removed.",
+        toastKey: Date.now(),
+      };
+    }
 
     await db.user.update({
       where: { id: parsed.data.userId },
@@ -240,14 +252,35 @@ export async function deleteMemberAction(formData: FormData) {
 
   if (!parsed.success) return;
 
-  try {
-    await db.member.delete({
-      where: { id: parsed.data.memberId },
-    });
+  const active = await db.member.findFirst({
+    where: {
+      id: parsed.data.memberId,
+      userId: parsed.data.userId,
+    },
+    select: {
+      id: true,
+      deletedAt: true,
+      user: { select: { deletedAt: true } },
+    },
+  });
+  if (!active || !isActiveMemberWithUser(active)) return;
 
-    await db.user.delete({
-      where: { id: parsed.data.userId },
-    });
+  const now = new Date();
+
+  try {
+    await db.$transaction([
+      db.member.update({
+        where: { id: parsed.data.memberId },
+        data: { deletedAt: now },
+      }),
+      db.user.update({
+        where: { id: parsed.data.userId },
+        data: {
+          deletedAt: now,
+          email: archivedUserEmail(parsed.data.userId),
+        },
+      }),
+    ]);
   } catch {
     return;
   }

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { isActiveMemberWithUser } from "@/lib/prisma-scope";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -57,12 +58,23 @@ export async function GET(request: Request, { params }: RouteParams) {
       id: { not: participantId },
     },
     include: {
-      member: { include: { user: { select: { name: true, email: true } } } },
+      member: {
+        include: {
+          user: { select: { name: true, email: true, deletedAt: true } },
+        },
+      },
     },
     orderBy: { rank: "asc" },
   });
 
-  const allowed = others.filter((p) => {
+  const activeOthers = others.filter((p) =>
+    isActiveMemberWithUser({
+      deletedAt: p.member.deletedAt,
+      user: p.member.user,
+    }),
+  );
+
+  const allowed = activeOthers.filter((p) => {
     if (opposedIds.has(p.id)) return false;
     const rank = p.rank ?? 0;
     const diff = Math.abs(myRank - rank);

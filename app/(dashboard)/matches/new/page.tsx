@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { NewMatchForm } from "@/components/matches/new-match-form";
 import { db } from "@/lib/db";
+import { isActiveMemberWithUser } from "@/lib/prisma-scope";
 
 export default async function NewMatchPage() {
   const session = await getServerSession(authOptions);
@@ -12,7 +13,7 @@ export default async function NewMatchPage() {
     redirect("/matches");
   }
 
-  const members = await db.member.findMany({
+  const rows = await db.member.findMany({
     include: {
       user: true,
     },
@@ -20,6 +21,8 @@ export default async function NewMatchPage() {
       memberCode: "asc",
     },
   });
+
+  const members = rows.filter(isActiveMemberWithUser);
 
   const memberOptions = members.map((member) => ({
     id: member.id,

@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { isActiveMemberWithUser } from "@/lib/prisma-scope";
 import { PageMotion, HeroMotion } from "@/components/ui/motion";
 import { computeSoloLeaderboard, type SoloMatchWithPlayers } from "@/lib/solo-service";
 import { SoloView } from "@/components/solo/solo-view";
@@ -26,7 +27,7 @@ export default async function SoloPage({
   const session = await getServerSession(authOptions);
   const canManage = session?.user?.role === Role.ADMIN;
 
-  const [rawMatches, attendanceRows, members] = await Promise.all([
+  const [rawMatches, attendanceRows, membersUnfiltered] = await Promise.all([
     db.soloMatch.findMany({
       where: { year },
       include: {
@@ -51,11 +52,15 @@ export default async function SoloPage({
     canManage
       ? db.member.findMany({
           where: { status: "ACTIVE" },
-          include: { user: { select: { id: true, name: true, email: true } } },
+          include: {
+            user: { select: { id: true, name: true, email: true, deletedAt: true } },
+          },
           orderBy: { user: { name: "asc" } },
         })
       : Promise.resolve([]),
   ]);
+
+  const members = membersUnfiltered.filter(isActiveMemberWithUser);
 
   const attendanceByMember = new Map<string, number>(
     attendanceRows.map((row) => [row.memberId, row._count.memberId]),

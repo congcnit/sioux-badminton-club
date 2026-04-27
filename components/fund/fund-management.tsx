@@ -6,6 +6,7 @@ import {
   FundTransactionStatus,
   FundTransactionType,
 } from "@prisma/client";
+import type { ComponentProps } from "react";
 import { useActionState, useState } from "react";
 
 import {
@@ -37,7 +38,7 @@ import {
 } from "@/components/ui/table";
 import { isIncomeType } from "@/lib/fund-service";
 import { useActionToast } from "@/lib/use-action-toast";
-import { HandCoins, Sparkles } from "lucide-react";
+import { HandCoins, Loader2, Sparkles } from "lucide-react";
 
 import { FundCategoryCharts } from "@/components/fund/fund-category-charts";
 import { FundTransactionForm } from "@/components/fund/fund-transaction-form";
@@ -206,6 +207,175 @@ function formatVnd(amount: number) {
   }).format(amount);
 }
 
+function EditableFundTransactionRow({
+  tx,
+  deleteDialogTransactionId,
+  setDeleteDialogTransactionId,
+  deleteAction,
+}: {
+  tx: FundTransaction;
+  deleteDialogTransactionId: string | null;
+  setDeleteDialogTransactionId: (id: string | null) => void;
+  deleteAction: NonNullable<ComponentProps<"form">["action"]>;
+}) {
+  const formId = `update-fund-${tx.id}`;
+  const [updateState, updateAction, isUpdatePending] = useActionState(
+    updateFundTransactionAction,
+    fundInitialState,
+  );
+  useActionToast(updateState, {
+    successPrefix: "Transaction saved",
+    errorPrefix: "Unable to save transaction",
+  });
+
+  const isDonationIncome =
+    tx.category === FundTransactionCategory.DONATION &&
+    tx.type === FundTransactionType.INCOME;
+
+  const inputDisabledClass =
+    "disabled:cursor-not-allowed disabled:opacity-70";
+
+  return (
+    <TableRow
+      className={isDonationIncome ? "donation-row" : ""}
+      aria-busy={isUpdatePending}
+    >
+      <TableCell className="align-middle">
+        <form id={formId} action={updateAction}>
+          <input type="hidden" name="transactionId" value={tx.id} />
+          <Input
+            name="date"
+            type="date"
+            defaultValue={tx.date.toISOString().slice(0, 10)}
+            disabled={isUpdatePending}
+            className={`h-9 w-full ${inputDisabledClass}`}
+          />
+        </form>
+      </TableCell>
+      <TableCell className="align-middle">
+        <select
+          name="type"
+          form={formId}
+          defaultValue={tx.type}
+          disabled={isUpdatePending}
+          className={`border-input bg-background h-7 w-full rounded-full border px-2.5 text-xs font-medium ${fundTypeChipClass(tx.type)} ${inputDisabledClass}`}
+        >
+          <option value={FundTransactionType.INCOME}>Income</option>
+          <option value={FundTransactionType.EXPENSE}>Expense</option>
+        </select>
+      </TableCell>
+      <TableCell className="align-middle">
+        <select
+          name="category"
+          form={formId}
+          defaultValue={tx.category}
+          disabled={isUpdatePending}
+          className={`border-input bg-background h-7 w-full rounded-full border px-2.5 text-xs font-medium ${fundCategoryChipClass(tx.category)} ${inputDisabledClass}`}
+        >
+          {Object.values(FundTransactionCategory).map((value) => (
+            <option key={value} value={value}>
+              {value.replace(/_/g, " ")}
+            </option>
+          ))}
+        </select>
+      </TableCell>
+      <TableCell className="align-middle">
+        <select
+          name="status"
+          form={formId}
+          defaultValue={tx.status ?? FundTransactionStatus.COMPLETED}
+          disabled={isUpdatePending}
+          className={`border-input bg-background h-7 w-full rounded-full border px-2.5 text-xs font-medium ${fundStatusChipClass(tx.status ?? FundTransactionStatus.COMPLETED)} ${inputDisabledClass}`}
+        >
+          <option value={FundTransactionStatus.PENDING}>Pending</option>
+          <option value={FundTransactionStatus.COMPLETED}>Completed</option>
+        </select>
+      </TableCell>
+      <TableCell className="align-middle min-w-[200px]">
+        <Input
+          name="description"
+          form={formId}
+          defaultValue={tx.description ?? ""}
+          disabled={isUpdatePending}
+          className={`h-9 min-w-0 w-full ${inputDisabledClass}`}
+        />
+      </TableCell>
+      <TableCell className="align-middle w-[120px] shrink-0 text-right">
+        <Input
+          name="amount"
+          form={formId}
+          type="number"
+          min={1}
+          defaultValue={Math.round(tx.amount)}
+          disabled={isUpdatePending}
+          className={`h-9 w-full text-right ${inputDisabledClass} ${isIncomeType(tx.type) ? "text-emerald-700 dark:text-emerald-400" : "text-destructive"}`}
+        />
+      </TableCell>
+      <TableCell className="align-middle">
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            type="submit"
+            form={formId}
+            disabled={isUpdatePending}
+            aria-busy={isUpdatePending}
+          >
+            {isUpdatePending ? (
+              <>
+                <Loader2
+                  className="size-4 animate-spin"
+                  aria-hidden
+                />
+                Saving…
+              </>
+            ) : (
+              "Save"
+            )}
+          </Button>
+          <AlertDialog
+            open={deleteDialogTransactionId === tx.id}
+            onOpenChange={(open) => {
+              if (!open) setDeleteDialogTransactionId(null);
+            }}
+          >
+            <AlertDialogTrigger asChild>
+              <Button
+                size="sm"
+                type="button"
+                variant="destructive"
+                disabled={isUpdatePending}
+                onClick={() => setDeleteDialogTransactionId(tx.id)}
+              >
+                Delete
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent
+              size="sm"
+              onOverlayClick={() => setDeleteDialogTransactionId(null)}
+            >
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete transaction?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone and will change fund balances.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <form action={deleteAction}>
+                  <input type="hidden" name="transactionId" value={tx.id} />
+                  <AlertDialogAction asChild variant="destructive">
+                    <button type="submit">Confirm Delete</button>
+                  </AlertDialogAction>
+                </form>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+}
+
 export function FundManagement({
   transactions,
   summary,
@@ -218,19 +388,11 @@ export function FundManagement({
   const [deleteDialogTransactionId, setDeleteDialogTransactionId] = useState<
     string | null
   >(null);
-  const [updateState, updateAction] = useActionState(
-    updateFundTransactionAction,
-    fundInitialState,
-  );
   const [deleteState, deleteAction] = useActionState(
     deleteFundTransactionAction,
     fundInitialState,
   );
 
-  useActionToast(updateState, {
-    successPrefix: "Transaction saved",
-    errorPrefix: "Unable to save transaction",
-  });
   useActionToast(deleteState, {
     successPrefix: "Transaction deleted",
     errorPrefix: "Unable to delete transaction",
@@ -245,126 +407,17 @@ export function FundManagement({
 
   const renderTransactionRows = (list: FundTransaction[]) =>
     list.map((tx) => {
-      const formId = `update-fund-${tx.id}`;
       const isDonationIncome =
         tx.category === FundTransactionCategory.DONATION &&
         tx.type === FundTransactionType.INCOME;
       return canManage ? (
-        <TableRow
+        <EditableFundTransactionRow
           key={tx.id}
-          className={isDonationIncome ? "donation-row" : ""}
-        >
-          <TableCell className="align-middle">
-            <form id={formId} action={updateAction}>
-              <input type="hidden" name="transactionId" value={tx.id} />
-              <Input
-                name="date"
-                type="date"
-                defaultValue={tx.date.toISOString().slice(0, 10)}
-                className="h-9 w-full"
-              />
-            </form>
-          </TableCell>
-          <TableCell className="align-middle">
-            <select
-              name="type"
-              form={formId}
-              defaultValue={tx.type}
-              className={`border-input bg-background h-7 w-full rounded-full border px-2.5 text-xs font-medium ${fundTypeChipClass(tx.type)}`}
-            >
-              <option value={FundTransactionType.INCOME}>Income</option>
-              <option value={FundTransactionType.EXPENSE}>Expense</option>
-            </select>
-          </TableCell>
-          <TableCell className="align-middle">
-            <select
-              name="category"
-              form={formId}
-              defaultValue={tx.category}
-              className={`border-input bg-background h-7 w-full rounded-full border px-2.5 text-xs font-medium ${fundCategoryChipClass(tx.category)}`}
-            >
-              {Object.values(FundTransactionCategory).map((value) => (
-                <option key={value} value={value}>
-                  {value.replace(/_/g, " ")}
-                </option>
-              ))}
-            </select>
-          </TableCell>
-          <TableCell className="align-middle">
-            <select
-              name="status"
-              form={formId}
-              defaultValue={tx.status ?? FundTransactionStatus.COMPLETED}
-              className={`border-input bg-background h-7 w-full rounded-full border px-2.5 text-xs font-medium ${fundStatusChipClass(tx.status ?? FundTransactionStatus.COMPLETED)}`}
-            >
-              <option value={FundTransactionStatus.PENDING}>Pending</option>
-              <option value={FundTransactionStatus.COMPLETED}>Completed</option>
-            </select>
-          </TableCell>
-          <TableCell className="align-middle min-w-[200px]">
-            <Input
-              name="description"
-              form={formId}
-              defaultValue={tx.description ?? ""}
-              className="h-9 min-w-0 w-full"
-            />
-          </TableCell>
-          <TableCell className="align-middle w-[120px] shrink-0 text-right">
-            <Input
-              name="amount"
-              form={formId}
-              type="number"
-              min={1}
-              defaultValue={Math.round(tx.amount)}
-              className={`h-9 w-full text-right ${isIncomeType(tx.type) ? "text-emerald-700 dark:text-emerald-400" : "text-destructive"}`}
-            />
-          </TableCell>
-          <TableCell className="align-middle">
-            <div className="flex gap-2">
-              <Button size="sm" type="submit" form={formId}>
-                Save
-              </Button>
-              <AlertDialog
-                open={deleteDialogTransactionId === tx.id}
-                onOpenChange={(open) => {
-                  if (!open) setDeleteDialogTransactionId(null);
-                }}
-              >
-                <AlertDialogTrigger asChild>
-                  <Button
-                    size="sm"
-                    type="button"
-                    variant="destructive"
-                    onClick={() => setDeleteDialogTransactionId(tx.id)}
-                  >
-                    Delete
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent
-                  size="sm"
-                  onOverlayClick={() => setDeleteDialogTransactionId(null)}
-                >
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Delete transaction?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This action cannot be undone and will change fund
-                      balances.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <form action={deleteAction}>
-                      <input type="hidden" name="transactionId" value={tx.id} />
-                      <AlertDialogAction asChild variant="destructive">
-                        <button type="submit">Confirm Delete</button>
-                      </AlertDialogAction>
-                    </form>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
-          </TableCell>
-        </TableRow>
+          tx={tx}
+          deleteDialogTransactionId={deleteDialogTransactionId}
+          setDeleteDialogTransactionId={setDeleteDialogTransactionId}
+          deleteAction={deleteAction}
+        />
       ) : (
         <TableRow
           key={tx.id}

@@ -7,6 +7,8 @@ import type { ArenaCategory, ArenaEventStatus } from "@prisma/client";
 import type { PrismaClient } from "@prisma/client";
 import { SessionAttendanceStatus } from "@prisma/client";
 
+import { isActiveMemberWithUser } from "@/lib/prisma-scope";
+
 const INITIAL_POINTS = 1000;
 const MAX_RANK_DIFF_FOR_CHALLENGE = 2;
 const CHALLENGES_PER_EVENT = 2;
@@ -322,21 +324,29 @@ export async function getEligibleMemberIds(
         ? "FEMALE"
         : null;
 
-  const members =
+  const memberRows =
     genderFilter == null
       ? await tx.member.findMany({
           where: { status: "ACTIVE" },
-          select: { id: true },
+          select: {
+            id: true,
+            deletedAt: true,
+            user: { select: { deletedAt: true } },
+          },
         })
       : await tx.member.findMany({
           where: {
             status: "ACTIVE",
             OR: [{ gender: genderFilter }, { gender: null }],
           },
-          select: { id: true },
+          select: {
+            id: true,
+            deletedAt: true,
+            user: { select: { deletedAt: true } },
+          },
         });
 
-  const memberIds = members.map((m) => m.id);
+  const memberIds = memberRows.filter(isActiveMemberWithUser).map((m) => m.id);
   if (memberIds.length === 0) return [];
 
   // When minSessionsRequired is 0, everyone in the category is eligible. groupBy only

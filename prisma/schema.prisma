@@ -10,7 +10,7 @@ generator client {
 
 datasource db {
   provider = "mongodb"
-  url      = env("DATABASE_URL")
+  url = env("DATABASE_URL")
 }
 
 model User {
@@ -23,6 +23,7 @@ model User {
   emailVerified DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
 
   memberProfile Member?
   sessions      Session[]
@@ -83,6 +84,7 @@ model Member {
   joinDate    DateTime     @default(now())
   status      MemberStatus @default(ACTIVE)
   notes       String?
+  deletedAt   DateTime?
 
   user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   attendances Attendance[]

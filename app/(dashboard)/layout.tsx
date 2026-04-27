@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { DashboardHeaderClient } from "@/components/layout/dashboard-header-client";
+import { isActiveUser } from "@/lib/prisma-scope";
 
 const baseNavigation = [
   { href: "/sessions", label: "Sessions" },
@@ -25,10 +26,18 @@ export default async function DashboardLayout({
   const navigation = isAdmin
     ? [...baseNavigation, { href: "/courts", label: "Courts" }]
     : baseNavigation;
-  const currentUser = await db.user.findUnique({
+  const userRow = await db.user.findUnique({
     where: { id: session.user.id },
-    select: { name: true, email: true, image: true },
+    select: { name: true, email: true, image: true, deletedAt: true },
   });
+  if (!userRow || !isActiveUser(userRow)) {
+    redirect("/api/auth/signout?callbackUrl=/login");
+  }
+  const currentUser = {
+    name: userRow.name,
+    email: userRow.email,
+    image: userRow.image,
+  };
   const initials = (
     currentUser?.name?.trim()?.[0] ??
     currentUser?.email?.[0] ??

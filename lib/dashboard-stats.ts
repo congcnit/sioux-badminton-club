@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { isActiveMemberWithUser } from "@/lib/prisma-scope";
 import { FundTransactionType, SessionAttendanceStatus } from "@prisma/client";
 
 type SpendingTrendPoint = {
@@ -145,11 +146,15 @@ export async function getDashboardStats(
     }),
     (async () => {
       if (!currentUserId) return 0;
-      const member = await db.member.findUnique({
+      const member = await db.member.findFirst({
         where: { userId: currentUserId },
-        select: { id: true },
+        select: {
+          id: true,
+          deletedAt: true,
+          user: { select: { deletedAt: true } },
+        },
       });
-      if (!member) return 0;
+      if (!member || !isActiveMemberWithUser(member)) return 0;
       return db.sessionAttendance.count({
         where: {
           memberId: member.id,

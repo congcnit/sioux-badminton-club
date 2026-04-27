@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth";
 import { revalidatePath } from "next/cache";
 
 import { authOptions } from "@/lib/auth";
+import { isActiveMemberWithUser } from "@/lib/prisma-scope";
 import { db } from "@/lib/db";
 import {
   createArenaEventWithParticipants,
@@ -205,11 +206,15 @@ export async function challengeOpponentAction(
     };
   }
 
-  const member = await db.member.findUnique({
+  const member = await db.member.findFirst({
     where: { userId: session.user.id },
-    select: { id: true },
+    select: {
+      id: true,
+      deletedAt: true,
+      user: { select: { deletedAt: true } },
+    },
   });
-  if (!member) {
+  if (!member || !isActiveMemberWithUser(member)) {
     return { success: false, message: "Member profile not found.", toastKey: Date.now() };
   }
 

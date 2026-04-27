@@ -1,6 +1,7 @@
 import { AttendanceManagement } from "@/components/attendance/attendance-management";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { isActiveMemberWithUser } from "@/lib/prisma-scope";
 import { Role } from "@prisma/client";
 import { getServerSession } from "next-auth";
 
@@ -10,15 +11,22 @@ export default async function SessionsPage() {
   const session = await getServerSession(authOptions);
   const isAdmin = session?.user?.role === Role.ADMIN;
 
-  const currentMember =
-    session?.user?.id != null
-      ? await db.member.findUnique({
-          where: { userId: session.user.id },
-          select: { id: true },
-        })
-      : null;
+  let currentMember: { id: string } | null = null;
+  if (session?.user?.id != null) {
+    const row = await db.member.findFirst({
+      where: { userId: session.user.id },
+      select: {
+        id: true,
+        deletedAt: true,
+        user: { select: { deletedAt: true } },
+      },
+    });
+    if (row && isActiveMemberWithUser(row)) {
+      currentMember = { id: row.id };
+    }
+  }
 
-  const [sessions, totalCount, members] = await Promise.all([
+  const [sessions, totalCount, membersUnfiltered] = await Promise.all([
     db.badmintonSession.findMany({
       include: {
         attendances: {
@@ -50,6 +58,8 @@ export default async function SessionsPage() {
       orderBy: { memberCode: "asc" },
     }),
   ]);
+
+  const members = membersUnfiltered.filter(isActiveMemberWithUser);
 
   const sessionItems = sessions.map((session) => ({
     id: session.id,

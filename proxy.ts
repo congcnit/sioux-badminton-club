@@ -17,6 +17,19 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Vercel Cron + `npm run cron:test` send Bearer CRON_SECRET; session cookies are not used.
+  if (pathname.startsWith("/api/cron")) {
+    const cronSecret = process.env.CRON_SECRET;
+    const authHeader = request.headers.get("authorization");
+    if (!cronSecret) {
+      return NextResponse.next();
+    }
+    if (authHeader === `Bearer ${cronSecret}`) {
+      return NextResponse.next();
+    }
+    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  }
+
   if (pathname === "/register") {
     return NextResponse.redirect(new URL("/login", request.url));
   }

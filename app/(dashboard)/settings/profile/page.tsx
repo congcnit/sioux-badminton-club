@@ -8,6 +8,7 @@ import { ProfileForm } from "@/components/settings/profile-form";
 import { PageMotion, HeroMotion } from "@/components/ui/motion";
 import { Button } from "@/components/ui/button";
 import { db } from "@/lib/db";
+import { isActiveUser } from "@/lib/prisma-scope";
 
 export default async function ProfileSettingsPage() {
   const session = await getServerSession(authOptions);
@@ -21,6 +22,7 @@ export default async function ProfileSettingsPage() {
       name: true,
       email: true,
       image: true,
+      deletedAt: true,
       memberProfile: {
         select: {
           phone: true,
@@ -30,7 +32,7 @@ export default async function ProfileSettingsPage() {
     },
   });
 
-  if (!user) {
+  if (!user || !isActiveUser(user)) {
     redirect("/login");
   }
 

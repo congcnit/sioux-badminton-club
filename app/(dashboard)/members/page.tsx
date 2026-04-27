@@ -1,6 +1,7 @@
 import { MemberManagement } from "@/components/members/member-management";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { isActiveMemberWithUser } from "@/lib/prisma-scope";
 import { getServerSession } from "next-auth";
 import { Role } from "@prisma/client";
 
@@ -8,7 +9,7 @@ export default async function MembersPage() {
   const session = await getServerSession(authOptions);
   const isAdmin = session?.user?.role === Role.ADMIN;
 
-  const members = await db.member.findMany({
+  const rows = await db.member.findMany({
     include: {
       user: true,
     },
@@ -16,6 +17,8 @@ export default async function MembersPage() {
       joinDate: "desc",
     },
   });
+
+  const members = rows.filter(isActiveMemberWithUser);
 
   const listItems = members.map((member) => ({
     id: member.id,

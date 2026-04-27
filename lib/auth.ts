@@ -6,6 +6,7 @@ import { compare } from "bcrypt";
 import { z } from "zod";
 
 import { db } from "@/lib/db";
+import { isActiveUser } from "./prisma-scope";
 
 const credentialsSchema = z.object({
   email: z.email(),
@@ -35,9 +36,12 @@ export const authOptions: NextAuthOptions = {
           where: { email: parsed.data.email },
         });
 
-        if (!user?.password) return null;
+        if (!user?.password || !isActiveUser(user)) return null;
 
-        const validPassword = await compare(parsed.data.password, user.password);
+        const validPassword = await compare(
+          parsed.data.password,
+          user.password,
+        );
         if (!validPassword) return null;
 
         return {

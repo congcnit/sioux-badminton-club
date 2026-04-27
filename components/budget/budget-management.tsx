@@ -39,7 +39,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { useActionToast } from "@/lib/use-action-toast";
-import { WalletCards } from "lucide-react";
+import { Loader2, WalletCards } from "lucide-react";
 
 type SessionOption = {
   id: string;
@@ -152,6 +152,199 @@ function sessionOptionLabel(session: SessionOption) {
   return session.court?.name ? `${date} - ${session.court.name}` : date;
 }
 
+function EditableBudgetTransactionRow({
+  tx,
+  sessions,
+  deleteDialogTransactionId,
+  setDeleteDialogTransactionId,
+}: {
+  tx: TransactionItem;
+  sessions: SessionOption[];
+  deleteDialogTransactionId: string | null;
+  setDeleteDialogTransactionId: (id: string | null) => void;
+}) {
+  const router = useRouter();
+  const [updateState, updateAction, isUpdatePending] = useActionState(
+    updateExpenseAction,
+    initialState,
+  );
+  const [deleteState, deleteAction, isDeletePending] = useActionState(
+    deleteExpenseAction,
+    initialState,
+  );
+
+  useActionToast(updateState, {
+    successPrefix: "Transaction saved",
+    errorPrefix: "Unable to save transaction",
+  });
+  useActionToast(deleteState, {
+    successPrefix: "Transaction deleted",
+    errorPrefix: "Unable to delete transaction",
+  });
+
+  useEffect(() => {
+    if (updateState.success && updateState.toastKey) router.refresh();
+  }, [updateState.success, updateState.toastKey, router]);
+
+  useEffect(() => {
+    if (deleteState.success && deleteState.toastKey) {
+      router.refresh();
+      setDeleteDialogTransactionId(null);
+    }
+  }, [deleteState.success, deleteState.toastKey, router, setDeleteDialogTransactionId]);
+
+  const formId = `update-expense-${tx.id}`;
+  const inputDisabledClass = "disabled:cursor-not-allowed disabled:opacity-70";
+  const rowBusy = isUpdatePending || isDeletePending;
+
+  return (
+    <TableRow aria-busy={rowBusy}>
+      <TableCell>
+        <Input
+          form={formId}
+          name="date"
+          type="date"
+          defaultValue={tx.date.toISOString().slice(0, 10)}
+          disabled={rowBusy}
+          className={inputDisabledClass}
+        />
+      </TableCell>
+      <TableCell>
+        <select
+          form={formId}
+          name="category"
+          defaultValue={tx.category}
+          disabled={rowBusy}
+          className={cn(
+            "h-9 w-full rounded-full border px-2.5 text-xs font-medium",
+            budgetCategoryChipClass(tx.category),
+            inputDisabledClass,
+          )}
+        >
+          {Object.values(BudgetCategoryType).map((value) => (
+            <option key={value} value={value}>
+              {value}
+            </option>
+          ))}
+        </select>
+      </TableCell>
+      <TableCell>
+        <Input
+          form={formId}
+          name="description"
+          defaultValue={tx.description ?? ""}
+          disabled={rowBusy}
+          className={inputDisabledClass}
+        />
+      </TableCell>
+      <TableCell>
+        <select
+          form={formId}
+          name="sessionId"
+          defaultValue={tx.sessionId ?? ""}
+          disabled={rowBusy}
+          className={cn(
+            "border-input bg-transparent h-9 w-full rounded-md border px-3 text-sm",
+            inputDisabledClass,
+          )}
+        >
+          <option value="">No session</option>
+          {sessions.map((session) => (
+            <option key={session.id} value={session.id}>
+              {sessionOptionLabel(session)}
+            </option>
+          ))}
+        </select>
+      </TableCell>
+      <TableCell className="text-right font-semibold tabular-nums">
+        <Input
+          form={formId}
+          name="amount"
+          type="number"
+          min={1}
+          defaultValue={Math.round(tx.amount)}
+          disabled={rowBusy}
+          className={cn("w-28 text-right font-semibold", inputDisabledClass)}
+        />
+      </TableCell>
+      <TableCell>
+        <div className="flex gap-2">
+          <form id={formId} action={updateAction}>
+            <input type="hidden" name="transactionId" value={tx.id} />
+            <Button
+              size="sm"
+              type="submit"
+              disabled={rowBusy}
+              aria-busy={isUpdatePending}
+            >
+              {isUpdatePending ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" aria-hidden />
+                  Saving…
+                </>
+              ) : (
+                "Save"
+              )}
+            </Button>
+          </form>
+          <AlertDialog
+            open={deleteDialogTransactionId === tx.id}
+            onOpenChange={(open) => {
+              if (!open) setDeleteDialogTransactionId(null);
+            }}
+          >
+            <AlertDialogTrigger asChild>
+              <Button
+                size="sm"
+                variant="destructive"
+                type="button"
+                disabled={rowBusy}
+                onClick={() => setDeleteDialogTransactionId(tx.id)}
+              >
+                Delete
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent
+              size="sm"
+              onOverlayClick={() => setDeleteDialogTransactionId(null)}
+            >
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete transaction?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone. The transaction will be removed and monthly budget
+                  totals will be recalculated.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={isDeletePending}>Cancel</AlertDialogCancel>
+                <form action={deleteAction}>
+                  <input type="hidden" name="transactionId" value={tx.id} />
+                  <AlertDialogAction asChild variant="destructive">
+                    <button
+                      type="submit"
+                      disabled={isDeletePending}
+                      aria-busy={isDeletePending}
+                    >
+                      {isDeletePending ? (
+                        <>
+                          <Loader2 className="size-4 animate-spin" aria-hidden />
+                          Deleting…
+                        </>
+                      ) : (
+                        "Confirm Delete"
+                      )}
+                    </button>
+                  </AlertDialogAction>
+                </form>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+}
+
 export function BudgetManagement({
   year,
   month,
@@ -166,35 +359,19 @@ export function BudgetManagement({
 }: BudgetManagementProps) {
   const router = useRouter();
   const [deleteDialogTransactionId, setDeleteDialogTransactionId] = useState<string | null>(null);
-  const [createState, createAction] = useActionState(createExpenseAction, initialState);
-  const [updateState, updateAction] = useActionState(updateExpenseAction, initialState);
-  const [deleteState, deleteAction] = useActionState(deleteExpenseAction, initialState);
+  const [createState, createAction, isCreatePending] = useActionState(
+    createExpenseAction,
+    initialState,
+  );
 
   useActionToast(createState, {
     successPrefix: "Expense added",
     errorPrefix: "Unable to add expense",
   });
-  useActionToast(updateState, {
-    successPrefix: "Transaction saved",
-    errorPrefix: "Unable to save transaction",
-  });
-  useActionToast(deleteState, {
-    successPrefix: "Transaction deleted",
-    errorPrefix: "Unable to delete transaction",
-  });
 
   useEffect(() => {
     if (createState.success && createState.toastKey) router.refresh();
   }, [createState.success, createState.toastKey, router]);
-  useEffect(() => {
-    if (updateState.success && updateState.toastKey) router.refresh();
-  }, [updateState.success, updateState.toastKey, router]);
-  useEffect(() => {
-    if (deleteState.success && deleteState.toastKey) {
-      router.refresh();
-      setDeleteDialogTransactionId(null);
-    }
-  }, [deleteState.success, deleteState.toastKey, router]);
   const isOverBudget = selectedBudget.remainingAmount < 0;
   const utilization =
     selectedBudget.totalAmount > 0
@@ -204,6 +381,8 @@ export function BudgetManagement({
   const spentAmountClass = isOverBudget ? "text-destructive" : "text-amber-600";
   const remainingAmountClass = isOverBudget ? "text-destructive" : "text-emerald-600";
   const usageAmountClass = isOverBudget ? "text-destructive" : "text-sky-600";
+  const addExpenseFieldDisabled =
+    "disabled:cursor-not-allowed disabled:opacity-70";
 
   return (
     <section className="space-y-8">
@@ -267,72 +446,116 @@ export function BudgetManagement({
       ) : null}
 
       {canManage ? (
-        <form action={createAction} className="space-y-4 rounded-xl border bg-card p-5 shadow-sm">
+        <form
+          action={createAction}
+          aria-busy={isCreatePending}
+          className="space-y-4 rounded-xl border bg-card p-5 shadow-sm"
+        >
           <h2 className="text-lg font-medium">Add Expense Transaction</h2>
-        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-6">
-          <div className="space-y-1">
-            <Label htmlFor="amount">Amount (VND)</Label>
-            <Input id="amount" name="amount" type="number" min={1} placeholder="150000" />
-            {createState.errors?.amount ? (
-              <p className="text-xs text-destructive">{createState.errors.amount[0]}</p>
-            ) : null}
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="budgetMonth">Budget Month</Label>
-            <Input
-              id="budgetMonth"
-              name="budgetMonth"
-              type="month"
-              defaultValue={budgetMonthValue(year, month)}
-            />
-            {createState.errors?.budgetMonth ? (
-              <p className="text-xs text-destructive">{createState.errors.budgetMonth[0]}</p>
-            ) : null}
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="category">Category</Label>
-            <select
-              id="category"
-              name="category"
-              defaultValue={BudgetCategoryType.COURT}
-              className="border-input bg-transparent h-9 w-full rounded-md border px-3 text-sm"
-            >
-              {Object.values(BudgetCategoryType).map((value) => (
-                <option key={value} value={value}>
-                  {value}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="date">Date</Label>
-            <Input id="date" name="date" type="date" defaultValue={todayInputValue()} />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="sessionId">Session</Label>
-            <select
-              id="sessionId"
-              name="sessionId"
-              defaultValue=""
-              className="border-input bg-transparent h-9 w-full rounded-md border px-3 text-sm"
-            >
-              <option value="">No session</option>
-              {sessions.map((session) => (
-                <option key={session.id} value={session.id}>
-                  {sessionOptionLabel(session)}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-1 md:col-span-2 lg:col-span-2">
-            <Label htmlFor="description">Description</Label>
-            <Input id="description" name="description" placeholder="Court booking fee" />
-          </div>
-        </div>
+          <fieldset
+            disabled={isCreatePending}
+            className="min-w-0 space-y-4 border-0 p-0 [&:disabled_*]:cursor-not-allowed"
+          >
+            <legend className="sr-only">Expense details</legend>
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-6">
+              <div className="space-y-1">
+                <Label htmlFor="amount">Amount (VND)</Label>
+                <Input
+                  id="amount"
+                  name="amount"
+                  type="number"
+                  min={1}
+                  placeholder="150000"
+                  className={addExpenseFieldDisabled}
+                />
+                {createState.errors?.amount ? (
+                  <p className="text-xs text-destructive">{createState.errors.amount[0]}</p>
+                ) : null}
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="budgetMonth">Budget Month</Label>
+                <Input
+                  id="budgetMonth"
+                  name="budgetMonth"
+                  type="month"
+                  defaultValue={budgetMonthValue(year, month)}
+                  className={addExpenseFieldDisabled}
+                />
+                {createState.errors?.budgetMonth ? (
+                  <p className="text-xs text-destructive">{createState.errors.budgetMonth[0]}</p>
+                ) : null}
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="category">Category</Label>
+                <select
+                  id="category"
+                  name="category"
+                  defaultValue={BudgetCategoryType.COURT}
+                  className={cn(
+                    "border-input bg-transparent h-9 w-full rounded-md border px-3 text-sm",
+                    addExpenseFieldDisabled,
+                  )}
+                >
+                  {Object.values(BudgetCategoryType).map((value) => (
+                    <option key={value} value={value}>
+                      {value}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="date">Date</Label>
+                <Input
+                  id="date"
+                  name="date"
+                  type="date"
+                  defaultValue={todayInputValue()}
+                  className={addExpenseFieldDisabled}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="sessionId">Session</Label>
+                <select
+                  id="sessionId"
+                  name="sessionId"
+                  defaultValue=""
+                  className={cn(
+                    "border-input bg-transparent h-9 w-full rounded-md border px-3 text-sm",
+                    addExpenseFieldDisabled,
+                  )}
+                >
+                  <option value="">No session</option>
+                  {sessions.map((session) => (
+                    <option key={session.id} value={session.id}>
+                      {sessionOptionLabel(session)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1 md:col-span-2 lg:col-span-2">
+                <Label htmlFor="description">Description</Label>
+                <Input
+                  id="description"
+                  name="description"
+                  placeholder="Court booking fee"
+                  className={addExpenseFieldDisabled}
+                />
+              </div>
+            </div>
+          </fieldset>
           {createState.message && !createState.success ? (
             <p className="text-sm text-destructive">{createState.message}</p>
           ) : null}
-          <Button type="submit">Add expense</Button>
+          <Button type="submit" disabled={isCreatePending} aria-busy={isCreatePending}>
+            {isCreatePending ? (
+              <>
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+                Adding…
+              </>
+            ) : (
+              "Add expense"
+            )}
+          </Button>
         </form>
       ) : null}
 
@@ -368,115 +591,13 @@ export function BudgetManagement({
           <TableBody>
             {transactions.map((tx) =>
               canManage ? (
-                <TableRow
-                  key={`${tx.id}-${tx.sessionId ?? ""}-${tx.date.toISOString?.() ?? tx.date}-${tx.category}-${tx.amount}-${tx.description ?? ""}`}
-                >
-                  <TableCell>
-                    <Input
-                      form={`update-expense-${tx.id}`}
-                      name="date"
-                      type="date"
-                      defaultValue={tx.date.toISOString().slice(0, 10)}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <select
-                      form={`update-expense-${tx.id}`}
-                      name="category"
-                      defaultValue={tx.category}
-                      className={cn(
-                        "h-9 w-full rounded-full border px-2.5 text-xs font-medium",
-                        budgetCategoryChipClass(tx.category),
-                      )}
-                    >
-                      {Object.values(BudgetCategoryType).map((value) => (
-                        <option key={value} value={value}>
-                          {value}
-                        </option>
-                      ))}
-                    </select>
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      form={`update-expense-${tx.id}`}
-                      name="description"
-                      defaultValue={tx.description ?? ""}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <select
-                      form={`update-expense-${tx.id}`}
-                      name="sessionId"
-                      defaultValue={tx.sessionId ?? ""}
-                      className="border-input bg-transparent h-9 w-full rounded-md border px-3 text-sm"
-                    >
-                      <option value="">No session</option>
-                      {sessions.map((session) => (
-                        <option key={session.id} value={session.id}>
-                          {sessionOptionLabel(session)}
-                        </option>
-                      ))}
-                    </select>
-                  </TableCell>
-                  <TableCell className="text-right font-semibold tabular-nums">
-                    <Input
-                      form={`update-expense-${tx.id}`}
-                      name="amount"
-                      type="number"
-                      min={1}
-                      defaultValue={Math.round(tx.amount)}
-                      className="w-28 text-right font-semibold"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <form id={`update-expense-${tx.id}`} action={updateAction}>
-                        <input type="hidden" name="transactionId" value={tx.id} />
-                        <Button size="sm" type="submit">
-                          Save
-                        </Button>
-                      </form>
-                      <AlertDialog
-                        open={deleteDialogTransactionId === tx.id}
-                        onOpenChange={(open) => {
-                          if (!open) setDeleteDialogTransactionId(null);
-                        }}
-                      >
-                        <AlertDialogTrigger asChild>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            type="button"
-                            onClick={() => setDeleteDialogTransactionId(tx.id)}
-                          >
-                            Delete
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent
-                          size="sm"
-                          onOverlayClick={() => setDeleteDialogTransactionId(null)}
-                        >
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Delete transaction?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This action cannot be undone. The transaction will be removed and
-                              monthly budget totals will be recalculated.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <form action={deleteAction}>
-                              <input type="hidden" name="transactionId" value={tx.id} />
-                              <AlertDialogAction asChild variant="destructive">
-                                <button type="submit">Confirm Delete</button>
-                              </AlertDialogAction>
-                            </form>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
-                  </TableCell>
-                </TableRow>
+                <EditableBudgetTransactionRow
+                  key={tx.id}
+                  tx={tx}
+                  sessions={sessions}
+                  deleteDialogTransactionId={deleteDialogTransactionId}
+                  setDeleteDialogTransactionId={setDeleteDialogTransactionId}
+                />
               ) : (
                 <TableRow key={tx.id}>
                   <TableCell>{tx.date.toISOString().slice(0, 10)}</TableCell>
