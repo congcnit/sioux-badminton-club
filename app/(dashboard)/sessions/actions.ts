@@ -33,6 +33,8 @@ export type AttendanceActionState = {
 export type AttendanceInlineActionState = {
   success: boolean;
   message: string;
+  /** Ensures useActionToast and router.refresh run on every submission. */
+  toastKey?: number;
 };
 
 const initialState: AttendanceActionState = {
@@ -178,7 +180,7 @@ export async function markAttendanceAction(
 ): Promise<AttendanceInlineActionState> {
   const actor = await getServerSession(authOptions);
   if (!actor?.user?.id || actor.user.role !== Role.ADMIN) {
-    return { success: false, message: "Only admin can update attendance." };
+    return { success: false, message: "Only admin can update attendance.", toastKey: Date.now() };
   }
 
   const parsed = markAttendanceSchema.safeParse({
@@ -189,7 +191,7 @@ export async function markAttendanceAction(
     fineAmount: formData.get("fineAmount"),
   });
   if (!parsed.success) {
-    return { success: false, message: "Invalid attendance data." };
+    return { success: false, message: "Invalid attendance data.", toastKey: Date.now() };
   }
 
   const targetMember = await db.member.findFirst({
@@ -208,7 +210,7 @@ export async function markAttendanceAction(
     !isActiveMemberWithUser(targetMember) ||
     targetMember.user.role === Role.ADMIN
   ) {
-    return { success: false, message: "Invalid member." };
+    return { success: false, message: "Invalid member.", toastKey: Date.now() };
   }
 
   const fineAmount =
@@ -241,7 +243,7 @@ export async function markAttendanceAction(
 
   revalidatePath(SESSIONS_PATH);
   revalidatePath("/");
-  return { success: true, message: "Saved" };
+  return { success: true, message: "Attendance saved.", toastKey: Date.now() };
 }
 
 export type JoinSessionActionState = {

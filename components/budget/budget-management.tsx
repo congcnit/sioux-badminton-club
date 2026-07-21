@@ -592,7 +592,7 @@ export function BudgetManagement({
             {transactions.map((tx) =>
               canManage ? (
                 <EditableBudgetTransactionRow
-                  key={tx.id}
+                  key={`${tx.id}-${tx.date.toISOString()}-${tx.category}-${tx.description ?? ""}-${tx.sessionId ?? ""}-${Math.round(tx.amount)}`}
                   tx={tx}
                   sessions={sessions}
                   deleteDialogTransactionId={deleteDialogTransactionId}

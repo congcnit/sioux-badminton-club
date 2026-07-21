@@ -1,6 +1,8 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useFormStatus } from "react-dom";
 
 import {
   createCourtAction,
@@ -8,6 +10,17 @@ import {
   type CourtActionState,
   updateCourtAction,
 } from "@/app/(dashboard)/courts/actions";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
@@ -21,7 +34,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useActionToast } from "@/lib/use-action-toast";
-import { MapPinned } from "lucide-react";
+import { Loader2, MapPinned } from "lucide-react";
 
 type CourtItem = {
   id: string;
@@ -39,12 +52,135 @@ const initialState: CourtActionState = {
   message: "",
 };
 
+function SubmitButton({
+  children,
+  ...props
+}: React.ComponentProps<typeof Button>) {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" disabled={pending} aria-busy={pending} {...props}>
+      {pending ? (
+        <>
+          <Loader2 className="size-4 animate-spin" aria-hidden />
+          Saving…
+        </>
+      ) : (
+        children
+      )}
+    </Button>
+  );
+}
+
+function CourtRow({ court }: { court: CourtItem }) {
+  const router = useRouter();
+  const [updateState, updateAction] = useActionState(
+    updateCourtAction,
+    initialState,
+  );
+  const [deleteState, deleteAction] = useActionState(
+    deleteCourtAction,
+    initialState,
+  );
+  const [deleteOpen, setDeleteOpen] = useState(false);
+
+  useActionToast(updateState, {
+    successPrefix: "Court updated",
+    errorPrefix: "Unable to update court",
+  });
+  useActionToast(deleteState, {
+    successPrefix: "Court deleted",
+    errorPrefix: "Unable to delete court",
+  });
+
+  useEffect(() => {
+    if (updateState.success && updateState.toastKey) router.refresh();
+  }, [updateState.success, updateState.toastKey, router]);
+
+  useEffect(() => {
+    if (deleteState.success && deleteState.toastKey) {
+      setDeleteOpen(false);
+      router.refresh();
+    }
+  }, [deleteState.success, deleteState.toastKey, router]);
+
+  return (
+    <TableRow>
+      <TableCell colSpan={4} className="p-0">
+        <form
+          action={updateAction}
+          className="grid grid-cols-1 gap-2 p-2 lg:grid-cols-[1fr_2fr_2fr_auto]"
+        >
+          <input type="hidden" name="courtId" value={court.id} />
+          <div className="space-y-1">
+            <Input name="name" defaultValue={court.name} />
+            {updateState.errors?.name ? (
+              <p className="text-xs text-destructive">{updateState.errors.name[0]}</p>
+            ) : null}
+          </div>
+          <div className="space-y-1">
+            <Input name="locationLink" defaultValue={court.locationLink ?? ""} />
+            {updateState.errors?.locationLink ? (
+              <p className="text-xs text-destructive">
+                {updateState.errors.locationLink[0]}
+              </p>
+            ) : null}
+          </div>
+          <div className="space-y-1">
+            <Input name="notes" defaultValue={court.notes ?? ""} />
+            {updateState.errors?.notes ? (
+              <p className="text-xs text-destructive">{updateState.errors.notes[0]}</p>
+            ) : null}
+          </div>
+          <div className="flex gap-2">
+            <SubmitButton size="sm">Save</SubmitButton>
+            <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+              <AlertDialogTrigger asChild>
+                <Button type="button" size="sm" variant="destructive">
+                  Delete
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent onOverlayClick={() => setDeleteOpen(false)}>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete court</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This permanently removes “{court.name}”. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel type="button">Cancel</AlertDialogCancel>
+                  <form action={deleteAction}>
+                    <input type="hidden" name="courtId" value={court.id} />
+                    <AlertDialogAction asChild>
+                      <SubmitButton size="sm" variant="destructive">
+                        Delete
+                      </SubmitButton>
+                    </AlertDialogAction>
+                  </form>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </form>
+      </TableCell>
+    </TableRow>
+  );
+}
+
 export function CourtManagement({ courts }: CourtManagementProps) {
+  const router = useRouter();
+  const formRef = useRef<HTMLFormElement>(null);
   const [state, action] = useActionState(createCourtAction, initialState);
   useActionToast(state, {
     successPrefix: "Court created",
     errorPrefix: "Unable to create court",
   });
+
+  useEffect(() => {
+    if (state.success && state.toastKey) {
+      formRef.current?.reset();
+      router.refresh();
+    }
+  }, [state.success, state.toastKey, router]);
 
   return (
     <section className="space-y-8">
@@ -55,7 +191,11 @@ export function CourtManagement({ courts }: CourtManagementProps) {
         </p>
       </div>
 
-      <form action={action} className="space-y-4 rounded-xl border bg-card p-5 shadow-sm">
+      <form
+        ref={formRef}
+        action={action}
+        className="space-y-4 rounded-xl border bg-card p-5 shadow-sm"
+      >
         <h2 className="text-lg font-medium">Add Court</h2>
         <div className="grid gap-3 md:grid-cols-3">
           <div className="space-y-1">
@@ -89,7 +229,7 @@ export function CourtManagement({ courts }: CourtManagementProps) {
         {state.message && !state.success ? (
           <p className="text-sm text-destructive">{state.message}</p>
         ) : null}
-        <Button type="submit">Add court</Button>
+        <SubmitButton>Add court</SubmitButton>
       </form>
 
       <div className="rounded-xl border bg-card p-4 shadow-sm">
@@ -105,27 +245,7 @@ export function CourtManagement({ courts }: CourtManagementProps) {
           </TableHeader>
           <TableBody>
             {courts.map((court) => (
-              <TableRow key={court.id}>
-                <TableCell colSpan={4} className="p-0">
-                  <form
-                    action={updateCourtAction}
-                    className="grid grid-cols-1 gap-2 p-2 lg:grid-cols-[1fr_2fr_2fr_auto]"
-                  >
-                    <input type="hidden" name="courtId" value={court.id} />
-                    <Input name="name" defaultValue={court.name} />
-                    <Input name="locationLink" defaultValue={court.locationLink ?? ""} />
-                    <Input name="notes" defaultValue={court.notes ?? ""} />
-                    <div className="flex gap-2">
-                      <Button size="sm" type="submit">
-                        Save
-                      </Button>
-                      <Button formAction={deleteCourtAction} size="sm" variant="destructive">
-                        Delete
-                      </Button>
-                    </div>
-                  </form>
-                </TableCell>
-              </TableRow>
+              <CourtRow key={court.id} court={court} />
             ))}
             {!courts.length ? (
               <TableRow>

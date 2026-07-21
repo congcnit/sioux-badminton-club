@@ -16,6 +16,8 @@ export type AccountActionState = {
   success: boolean;
   message: string;
   errors?: Record<string, string[]>;
+  /** Ensures useActionToast and router.refresh run on every submission. */
+  toastKey?: number;
 };
 
 const initialState: AccountActionState = {
@@ -66,7 +68,7 @@ export async function updateProfileAction(
   void prevState;
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return { success: false, message: "You must be signed in." };
+    return { success: false, message: "You must be signed in.", toastKey: Date.now() };
   }
 
   const parsed = updateProfileSchema.safeParse({
@@ -81,6 +83,7 @@ export async function updateProfileAction(
       success: false,
       message: "Please correct the highlighted fields.",
       errors: parsed.error.flatten().fieldErrors,
+      toastKey: Date.now(),
     };
   }
 
@@ -92,6 +95,7 @@ export async function updateProfileAction(
         success: false,
         message: "Avatar must be 500KB or smaller.",
         errors: { avatar: ["Avatar must be 500KB or smaller."] },
+        toastKey: Date.now(),
       };
     }
 
@@ -100,6 +104,7 @@ export async function updateProfileAction(
         success: false,
         message: "Avatar must be an image file.",
         errors: { avatar: ["Avatar must be an image file."] },
+        toastKey: Date.now(),
       };
     }
 
@@ -140,12 +145,14 @@ export async function updateProfileAction(
       return {
         success: false,
         message: "This email is already used by another account.",
+        toastKey: Date.now(),
       };
     }
 
     return {
       success: false,
       message: "Unable to update profile right now.",
+      toastKey: Date.now(),
     };
   }
 
@@ -155,6 +162,7 @@ export async function updateProfileAction(
   return {
     success: true,
     message: "Profile updated successfully.",
+    toastKey: Date.now(),
   };
 }
 
@@ -165,7 +173,7 @@ export async function updatePasswordAction(
   void prevState;
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return { success: false, message: "You must be signed in." };
+    return { success: false, message: "You must be signed in.", toastKey: Date.now() };
   }
 
   const parsed = changePasswordSchema.safeParse({
@@ -179,6 +187,7 @@ export async function updatePasswordAction(
       success: false,
       message: "Please correct the highlighted fields.",
       errors: parsed.error.flatten().fieldErrors,
+      toastKey: Date.now(),
     };
   }
 
@@ -191,6 +200,7 @@ export async function updatePasswordAction(
     return {
       success: false,
       message: "Password is not configured for this account.",
+      toastKey: Date.now(),
     };
   }
 
@@ -204,6 +214,7 @@ export async function updatePasswordAction(
       success: false,
       message: "Current password is incorrect.",
       errors: { currentPassword: ["Current password is incorrect."] },
+      toastKey: Date.now(),
     };
   }
 
@@ -218,5 +229,6 @@ export async function updatePasswordAction(
   return {
     success: true,
     message: "Password updated successfully.",
+    toastKey: Date.now(),
   };
 }

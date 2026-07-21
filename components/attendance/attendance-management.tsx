@@ -291,8 +291,8 @@ function AttendanceEditableRow({
   });
 
   useEffect(() => {
-    if (state.success) router.refresh();
-  }, [state.success, router]);
+    if (state.success && state.toastKey) router.refresh();
+  }, [state.success, state.toastKey, router]);
 
   return (
     <TableRow className={isPending ? "opacity-70" : undefined}>
@@ -1130,7 +1130,7 @@ export function AttendanceManagement({
                 {session.attendees.map((attendee) =>
                   canManage ? (
                     <AttendanceEditableRow
-                      key={`${session.id}-${attendee.memberId}`}
+                      key={`${session.id}-${attendee.memberId}-${attendee.status}-${attendee.fineAmount ?? ""}-${attendee.note ?? ""}`}
                       sessionId={session.id}
                       attendee={attendee}
                     />

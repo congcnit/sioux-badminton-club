@@ -1,6 +1,13 @@
-import { type FundTransactionCategory, FundTransactionType } from "@prisma/client";
+import {
+  type FundTransactionCategory,
+  FundTransactionStatus,
+  FundTransactionType,
+} from "@prisma/client";
 
 import { db } from "@/lib/db";
+
+/** Number of completed transactions loaded initially and per "Load more" click. */
+export const INITIAL_FUND_TRANSACTION_LIMIT = 30;
 
 function parseDateParam(value?: string) {
   if (!value) return null;
@@ -64,15 +71,24 @@ export async function getFundPageData() {
   const dateFilter = getCurrentYearDateFilter();
 
   const [
-    transactions,
+    pendingTransactions,
+    initialCurrentTransactions,
+    currentTransactionCount,
     totalBalanceRows,
     incomeGrouped,
     expenseGrouped,
   ] = await Promise.all([
     db.fundTransaction.findMany({
-      where: { date: dateFilter },
+      where: { status: FundTransactionStatus.PENDING, date: dateFilter },
       orderBy: { date: "desc" },
-      take: 100,
+    }),
+    db.fundTransaction.findMany({
+      where: { status: FundTransactionStatus.COMPLETED, date: dateFilter },
+      orderBy: { date: "desc" },
+      take: INITIAL_FUND_TRANSACTION_LIMIT,
+    }),
+    db.fundTransaction.count({
+      where: { status: FundTransactionStatus.COMPLETED, date: dateFilter },
     }),
     db.fundTransaction.aggregateRaw({
       pipeline: [
@@ -109,15 +125,6 @@ export async function getFundPageData() {
 
   const totalAgg = asObject(asArray(totalBalanceRows)[0]);
 
-  const filteredIncome = transactions.reduce(
-    (sum, tx) => sum + (tx.type === FundTransactionType.INCOME ? tx.amount : 0),
-    0,
-  );
-  const filteredExpense = transactions.reduce(
-    (sum, tx) => sum + (tx.type === FundTransactionType.EXPENSE ? tx.amount : 0),
-    0,
-  );
-
   const toCategoryPoint = (row: {
     category: FundTransactionCategory;
     _sum: { amount: number | null };
@@ -133,8 +140,13 @@ export async function getFundPageData() {
     .map(toCategoryPoint)
     .filter((p) => p.value > 0);
 
+  const filteredIncome = incomeByCategory.reduce((sum, p) => sum + p.value, 0);
+  const filteredExpense = expenseByCategory.reduce((sum, p) => sum + p.value, 0);
+
   return {
-    transactions,
+    transactions: [...pendingTransactions, ...initialCurrentTransactions],
+    currentTransactionCount,
+    limitStep: INITIAL_FUND_TRANSACTION_LIMIT,
     summary: {
       currentBalance: asNumber(totalAgg.balance),
       filteredIncome,
@@ -144,4 +156,19 @@ export async function getFundPageData() {
     incomeByCategory,
     expenseByCategory,
   };
+}
+
+export async function getMoreFundTransactions(offset: number, limit: number) {
+  const safeLimit = Math.min(Math.max(limit, 1), 100);
+  if (offset < 0) return [];
+
+  return db.fundTransaction.findMany({
+    where: {
+      status: FundTransactionStatus.COMPLETED,
+      date: getCurrentYearDateFilter(),
+    },
+    orderBy: { date: "desc" },
+    skip: offset,
+    take: safeLimit,
+  });
 }

@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Loader2 } from "lucide-react";
 
@@ -33,11 +34,19 @@ export function ProfileForm({
   phone,
   dateOfBirth,
 }: ProfileFormProps) {
+  const router = useRouter();
   const [state, action, isPending] = useActionState(updateProfileAction, initialState);
   useActionToast(state, {
     successPrefix: "Profile updated",
     errorPrefix: "Unable to update profile",
   });
+
+  useEffect(() => {
+    if (state.success && state.toastKey) {
+      // Refresh so the dashboard header (name/avatar) reflects the new profile.
+      router.refresh();
+    }
+  }, [state.success, state.toastKey, router]);
 
   return (
     <form action={action} className="space-y-4 rounded-xl border border-border/80 bg-card/80 p-5 shadow-md backdrop-blur-sm transition-shadow hover:shadow-lg">

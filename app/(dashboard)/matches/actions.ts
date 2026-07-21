@@ -13,6 +13,8 @@ export type MatchActionState = {
   success: boolean;
   message: string;
   errors?: Record<string, string[]>;
+  /** Ensures useActionToast and router.refresh run on every submission. */
+  toastKey?: number;
 };
 
 const initialState: MatchActionState = { success: false, message: "" };
@@ -24,7 +26,7 @@ export async function createMatchAction(
   void prevState;
   const session = await getServerSession(authOptions);
   if (!session?.user?.id || session.user.role !== Role.ADMIN) {
-    return { success: false, message: "Only admin can submit match results." };
+    return { success: false, message: "Only admin can submit match results.", toastKey: Date.now() };
   }
 
   const parsed = createMatchSchema.safeParse({
@@ -42,28 +44,38 @@ export async function createMatchAction(
       success: false,
       message: "Please correct the form fields.",
       errors: parsed.error.flatten().fieldErrors,
+      toastKey: Date.now(),
     };
   }
 
   const category = parsed.data.category === "WOMENS_SINGLES" ? "WOMENS_SINGLES" : "MENS_SINGLES";
 
-  await db.$transaction(async (tx) => {
-    await createRatedMatch(tx, {
-      player1Id: parsed.data.player1Id,
-      player2Id: parsed.data.player2Id,
-      winnerId: parsed.data.winnerId,
-      category,
-      scoreLine: parsed.data.scoreLine,
-      date: new Date(parsed.data.date),
-      notes: parsed.data.notes,
-      createdBy: session.user.id,
+  try {
+    await db.$transaction(async (tx) => {
+      await createRatedMatch(tx, {
+        player1Id: parsed.data.player1Id,
+        player2Id: parsed.data.player2Id,
+        winnerId: parsed.data.winnerId,
+        category,
+        scoreLine: parsed.data.scoreLine,
+        date: new Date(parsed.data.date),
+        notes: parsed.data.notes,
+        createdBy: session.user.id,
+      });
     });
-  });
+  } catch (error) {
+    console.error("createMatchAction error:", error);
+    return {
+      success: false,
+      message: "Unexpected error while submitting the match result.",
+      toastKey: Date.now(),
+    };
+  }
 
   revalidatePath("/arena");
   revalidatePath("/matches");
   revalidatePath("/matches/new");
   revalidatePath("/");
 
-  return { success: true, message: "Match result submitted and ratings updated." };
+  return { success: true, message: "Match result submitted and ratings updated.", toastKey: Date.now() };
 }

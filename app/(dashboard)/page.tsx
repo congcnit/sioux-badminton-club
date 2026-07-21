@@ -123,7 +123,7 @@ export default async function DashboardPage({
           <SportCard variant="leaderboard" className="overflow-hidden">
             <SportCardHeader
               title="Attendance Ranking"
-              subtitle={`Top 10 based on attendance in ${selectedYear}`}
+              subtitle={`Ranked by attendance in ${selectedYear}`}
             />
             <div className="p-4 pt-0">
           <Table>

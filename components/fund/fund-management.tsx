@@ -7,11 +7,13 @@ import {
   FundTransactionType,
 } from "@prisma/client";
 import type { ComponentProps } from "react";
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import {
   deleteFundTransactionAction,
   type FundActionState,
+  getMoreFundTransactionsAction,
   updateFundTransactionAction,
 } from "@/app/(dashboard)/fund/actions";
 import {
@@ -187,6 +189,8 @@ function fundStatusChipClass(status: FundTransactionStatus) {
 
 type FundManagementProps = {
   transactions: FundTransaction[];
+  currentTransactionCount: number;
+  limitStep: number;
   summary: {
     currentBalance: number;
     filteredIncome: number;
@@ -219,6 +223,7 @@ function EditableFundTransactionRow({
   deleteAction: NonNullable<ComponentProps<"form">["action"]>;
 }) {
   const formId = `update-fund-${tx.id}`;
+  const router = useRouter();
   const [updateState, updateAction, isUpdatePending] = useActionState(
     updateFundTransactionAction,
     fundInitialState,
@@ -227,6 +232,10 @@ function EditableFundTransactionRow({
     successPrefix: "Transaction saved",
     errorPrefix: "Unable to save transaction",
   });
+
+  useEffect(() => {
+    if (updateState.success && updateState.toastKey) router.refresh();
+  }, [updateState.success, updateState.toastKey, router]);
 
   const isDonationIncome =
     tx.category === FundTransactionCategory.DONATION &&
@@ -378,6 +387,8 @@ function EditableFundTransactionRow({
 
 export function FundManagement({
   transactions,
+  currentTransactionCount,
+  limitStep,
   summary,
   incomeByCategory,
   expenseByCategory,
@@ -385,6 +396,7 @@ export function FundManagement({
   canManage,
 }: FundManagementProps) {
   const negativeBalance = summary.currentBalance < 0;
+  const router = useRouter();
   const [deleteDialogTransactionId, setDeleteDialogTransactionId] = useState<
     string | null
   >(null);
@@ -398,12 +410,43 @@ export function FundManagement({
     errorPrefix: "Unable to delete transaction",
   });
 
+  useEffect(() => {
+    if (deleteState.success && deleteState.toastKey) {
+      setDeleteDialogTransactionId(null);
+      router.refresh();
+    }
+  }, [deleteState.success, deleteState.toastKey, router]);
+
   const pendingTransactions = transactions.filter(
     (tx) => tx.status === FundTransactionStatus.PENDING,
   );
-  const currentTransactions = transactions.filter(
-    (tx) => tx.status !== FundTransactionStatus.PENDING,
+  const [currentTransactions, setCurrentTransactions] = useState<
+    FundTransaction[]
+  >(() =>
+    transactions.filter((tx) => tx.status !== FundTransactionStatus.PENDING),
   );
+  const [loadingMore, setLoadingMore] = useState(false);
+  const hasMore = currentTransactionCount > currentTransactions.length;
+
+  useEffect(() => {
+    setCurrentTransactions(
+      transactions.filter((tx) => tx.status !== FundTransactionStatus.PENDING),
+    );
+  }, [transactions]);
+
+  async function handleLoadMore() {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const { transactions: next } = await getMoreFundTransactionsAction(
+        currentTransactions.length,
+        limitStep,
+      );
+      setCurrentTransactions((prev) => [...prev, ...next]);
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   const renderTransactionRows = (list: FundTransaction[]) =>
     list.map((tx) => {
@@ -412,7 +455,7 @@ export function FundManagement({
         tx.type === FundTransactionType.INCOME;
       return canManage ? (
         <EditableFundTransactionRow
-          key={tx.id}
+          key={`${tx.id}-${tx.date.toISOString()}-${tx.type}-${tx.category}-${tx.status ?? ""}-${Math.round(tx.amount)}-${tx.description ?? ""}`}
           tx={tx}
           deleteDialogTransactionId={deleteDialogTransactionId}
           setDeleteDialogTransactionId={setDeleteDialogTransactionId}
@@ -573,6 +616,26 @@ export function FundManagement({
             {currentTransactions.length === 0 ? emptyRow(cols) : null}
           </TableBody>
         </Table>
+        {hasMore ? (
+          <div className="mt-4 flex justify-center">
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              onClick={handleLoadMore}
+              disabled={loadingMore}
+            >
+              {loadingMore ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" aria-hidden />
+                  Loading…
+                </>
+              ) : (
+                "More"
+              )}
+            </Button>
+          </div>
+        ) : null}
       </div>
     </section>
   );

@@ -14,6 +14,8 @@ export default async function FundPage() {
   return (
     <FundManagement
       transactions={data.transactions}
+      currentTransactionCount={data.currentTransactionCount}
+      limitStep={data.limitStep}
       summary={data.summary}
       incomeByCategory={data.incomeByCategory}
       expenseByCategory={data.expenseByCategory}

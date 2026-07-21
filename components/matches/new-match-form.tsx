@@ -1,7 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { useFormStatus } from "react-dom";
+import { Loader2 } from "lucide-react";
 
 import {
   createMatchAction,
@@ -23,15 +26,40 @@ function todayInputValue() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function SubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" disabled={pending} aria-busy={pending}>
+      {pending ? (
+        <>
+          <Loader2 className="size-4 animate-spin" aria-hidden />
+          Submitting…
+        </>
+      ) : (
+        "Submit Match"
+      )}
+    </Button>
+  );
+}
+
 export function NewMatchForm({ members }: { members: MemberOption[] }) {
+  const router = useRouter();
+  const formRef = useRef<HTMLFormElement>(null);
   const [state, action] = useActionState(createMatchAction, initialState);
   useActionToast(state, {
     successPrefix: "Match submitted",
     errorPrefix: "Unable to submit match",
   });
 
+  useEffect(() => {
+    if (state.success && state.toastKey) {
+      formRef.current?.reset();
+      router.refresh();
+    }
+  }, [state.success, state.toastKey, router]);
+
   return (
-    <form action={action} className="space-y-4 rounded-xl border bg-card p-5 shadow-sm">
+    <form ref={formRef} action={action} className="space-y-4 rounded-xl border bg-card p-5 shadow-sm">
       <h2 className="text-lg font-medium">Submit Match Result</h2>
       <div className="grid gap-3 md:grid-cols-2">
         <div className="space-y-1">
@@ -134,7 +162,7 @@ export function NewMatchForm({ members }: { members: MemberOption[] }) {
       ) : null}
 
       <div className="flex items-center gap-2">
-        <Button type="submit">Submit Match</Button>
+        <SubmitButton />
         <Button asChild type="button" variant="outline">
           <Link href="/arena">Back to Arena</Link>
         </Button>

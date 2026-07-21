@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import { ClubRulesProvider } from "@/components/club-rules/club-rules-context";
 import { ClubRulesTrigger } from "@/components/club-rules/club-rules-trigger";
+import { FundQrTrigger } from "@/components/club-rules/fund-qr-trigger";
 import { DashboardNav } from "@/components/layout/dashboard-nav";
 
 type NavItem = { href: string; label: string; icon?: string };
@@ -62,6 +63,11 @@ export function DashboardHeaderClient({
                   variant="outline"
                   size="icon"
                   className="h-9 w-9 shrink-0 cursor-pointer rounded-full border-amber-500/60 bg-amber-500/15 text-amber-700 hover:border-amber-500 hover:bg-amber-500/25 dark:text-amber-400 dark:hover:bg-amber-500/20"
+                />
+                <FundQrTrigger
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 shrink-0 cursor-pointer rounded-full border-emerald-500/60 bg-emerald-500/15 text-emerald-700 hover:border-emerald-500 hover:bg-emerald-500/25 dark:text-emerald-400 dark:hover:bg-emerald-500/20"
                 />
                 <Link
                   href="/settings/profile"

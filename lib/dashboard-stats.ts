@@ -192,10 +192,12 @@ export async function getDashboardStats(
         member: {
           select: {
             memberCode: true,
+            deletedAt: true,
             user: {
               select: {
                 name: true,
                 email: true,
+                deletedAt: true,
               },
             },
           },
@@ -242,6 +244,7 @@ export async function getDashboardStats(
     { memberCode: string; memberName: string; attendanceCount: number }
   >();
   for (const row of attendanceRows) {
+    if (!isActiveMemberWithUser(row.member)) continue;
     const existing = attendanceByMember.get(row.memberId);
     if (existing) {
       existing.attendanceCount += 1;
@@ -261,8 +264,7 @@ export async function getDashboardStats(
       memberName: data.memberName,
       attendanceCount: data.attendanceCount,
     }))
-    .sort((a, b) => b.attendanceCount - a.attendanceCount)
-    .slice(0, 10);
+    .sort((a, b) => b.attendanceCount - a.attendanceCount);
 
   const fineByMember = new Map<
     string,

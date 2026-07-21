@@ -5,7 +5,10 @@ import {
   FundTransactionStatus,
   FundTransactionType,
 } from "@prisma/client";
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { useFormStatus } from "react-dom";
+import { Loader2 } from "lucide-react";
 
 import {
   createFundTransactionAction,
@@ -25,15 +28,40 @@ function todayInputValue() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function SubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" disabled={pending} aria-busy={pending}>
+      {pending ? (
+        <>
+          <Loader2 className="size-4 animate-spin" aria-hidden />
+          Saving…
+        </>
+      ) : (
+        "Save Transaction"
+      )}
+    </Button>
+  );
+}
+
 export function FundTransactionForm() {
+  const router = useRouter();
+  const formRef = useRef<HTMLFormElement>(null);
   const [state, action] = useActionState(createFundTransactionAction, initialState);
   useActionToast(state, {
     successPrefix: "Fund transaction saved",
     errorPrefix: "Unable to save transaction",
   });
 
+  useEffect(() => {
+    if (state.success && state.toastKey) {
+      formRef.current?.reset();
+      router.refresh();
+    }
+  }, [state.success, state.toastKey, router]);
+
   return (
-    <form action={action} className="space-y-4 rounded-xl border bg-card p-5 shadow-sm">
+    <form ref={formRef} action={action} className="space-y-4 rounded-xl border bg-card p-5 shadow-sm">
       <h2 className="text-lg font-medium">Add Fund Transaction</h2>
       <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
         <div className="space-y-1">
@@ -103,7 +131,7 @@ export function FundTransactionForm() {
       {state.message && !state.success ? (
         <p className="text-sm text-destructive">{state.message}</p>
       ) : null}
-      <Button type="submit">Save Transaction</Button>
+      <SubmitButton />
     </form>
   );
 }

@@ -1,7 +1,5 @@
 "use client";
 
-import Image from "next/image";
-
 /**
  * Static club rules content. Edit here when rules change, then bump CLUB_RULES_VERSION in lib/club-rules.ts.
  */
@@ -58,23 +56,6 @@ export function ClubRulesContent() {
             </span>
           </li>
         </ul>
-      </section>
-
-      <section>
-        <h2 className="mb-2 font-semibold text-base">Club Fund Transfer</h2>
-        <p className="text-muted-foreground">
-          Please scan the QR code below to transfer money to the club fund.
-        </p>
-        <div className="mt-3 flex justify-center">
-          <Image
-            src="/payment-qr.jpg"
-            alt="QR code for club fund transfer"
-            width={320}
-            height={320}
-            className="min-w-[320px] max-w-full rounded-lg border border-border object-contain"
-            unoptimized
-          />
-        </div>
       </section>
     </div>
   );

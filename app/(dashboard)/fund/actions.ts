@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { getMoreFundTransactions } from "@/lib/fund-service";
 import {
   createFundTransactionSchema,
   deleteFundTransactionSchema,
@@ -58,17 +59,26 @@ export async function createFundTransactionAction(
     };
   }
 
-  await db.fundTransaction.create({
-    data: {
-      type: parsed.data.type,
-      category: parsed.data.category,
-      status: parsed.data.status,
-      amount: parsed.data.amount,
-      description: parsed.data.description?.trim() || null,
-      date: new Date(parsed.data.date),
-      createdBy: session.user.id,
-    },
-  });
+  try {
+    await db.fundTransaction.create({
+      data: {
+        type: parsed.data.type,
+        category: parsed.data.category,
+        status: parsed.data.status,
+        amount: parsed.data.amount,
+        description: parsed.data.description?.trim() || null,
+        date: new Date(parsed.data.date),
+        createdBy: session.user.id,
+      },
+    });
+  } catch (error) {
+    console.error("createFundTransactionAction error:", error);
+    return {
+      success: false,
+      message: "Unexpected error while saving transaction.",
+      toastKey: Date.now(),
+    };
+  }
 
   revalidateFundPages();
   return { success: true, message: "Fund transaction saved successfully.", toastKey: Date.now() };
@@ -100,17 +110,26 @@ export async function updateFundTransactionAction(
     };
   }
 
-  await db.fundTransaction.update({
-    where: { id: parsed.data.transactionId },
-    data: {
-      type: parsed.data.type,
-      category: parsed.data.category,
-      status: parsed.data.status,
-      amount: parsed.data.amount,
-      description: parsed.data.description?.trim() || null,
-      date: new Date(parsed.data.date),
-    },
-  });
+  try {
+    await db.fundTransaction.update({
+      where: { id: parsed.data.transactionId },
+      data: {
+        type: parsed.data.type,
+        category: parsed.data.category,
+        status: parsed.data.status,
+        amount: parsed.data.amount,
+        description: parsed.data.description?.trim() || null,
+        date: new Date(parsed.data.date),
+      },
+    });
+  } catch (error) {
+    console.error("updateFundTransactionAction error:", error);
+    return {
+      success: false,
+      message: "Unexpected error while updating transaction.",
+      toastKey: Date.now(),
+    };
+  }
 
   revalidateFundPages();
   return { success: true, message: "Fund transaction updated.", toastKey: Date.now() };
@@ -131,10 +150,29 @@ export async function deleteFundTransactionAction(
     return { success: false, message: "Invalid request.", toastKey: Date.now() };
   }
 
-  await db.fundTransaction.delete({
-    where: { id: parsed.data.transactionId },
-  });
+  try {
+    await db.fundTransaction.delete({
+      where: { id: parsed.data.transactionId },
+    });
+  } catch (error) {
+    console.error("deleteFundTransactionAction error:", error);
+    return {
+      success: false,
+      message: "Unexpected error while deleting transaction.",
+      toastKey: Date.now(),
+    };
+  }
 
   revalidateFundPages();
   return { success: true, message: "Fund transaction deleted.", toastKey: Date.now() };
+}
+
+export async function getMoreFundTransactionsAction(offset: number, limit: number) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return { transactions: [] };
+  }
+
+  const transactions = await getMoreFundTransactions(offset, limit);
+  return { transactions };
 }

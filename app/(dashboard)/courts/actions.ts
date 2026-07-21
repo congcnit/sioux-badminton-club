@@ -16,6 +16,8 @@ export type CourtActionState = {
   success: boolean;
   message: string;
   errors?: Record<string, string[]>;
+  /** Ensures useActionToast and router.refresh run on every submission. */
+  toastKey?: number;
 };
 
 const initialState: CourtActionState = {
@@ -49,7 +51,7 @@ export async function createCourtAction(
 ): Promise<CourtActionState> {
   void prevState;
   if (!(await assertAdmin())) {
-    return { success: false, message: "Only admin can manage courts." };
+    return { success: false, message: "Only admin can manage courts.", toastKey: Date.now() };
   }
 
   const parsed = createCourtSchema.safeParse({
@@ -63,6 +65,7 @@ export async function createCourtAction(
       success: false,
       message: "Please correct the form fields.",
       errors: parsed.error.flatten().fieldErrors,
+      toastKey: Date.now(),
     };
   }
 
@@ -75,15 +78,21 @@ export async function createCourtAction(
       },
     });
   } catch (error) {
-    return { success: false, message: normalizePrismaError(error) };
+    return { success: false, message: normalizePrismaError(error), toastKey: Date.now() };
   }
 
   revalidatePath("/courts");
-  return { success: true, message: "Court created." };
+  return { success: true, message: "Court created.", toastKey: Date.now() };
 }
 
-export async function updateCourtAction(formData: FormData) {
-  if (!(await assertAdmin())) return;
+export async function updateCourtAction(
+  prevState: CourtActionState = initialState,
+  formData: FormData,
+): Promise<CourtActionState> {
+  void prevState;
+  if (!(await assertAdmin())) {
+    return { success: false, message: "Only admin can manage courts.", toastKey: Date.now() };
+  }
 
   const parsed = updateCourtSchema.safeParse({
     courtId: formData.get("courtId"),
@@ -91,7 +100,14 @@ export async function updateCourtAction(formData: FormData) {
     locationLink: formData.get("locationLink"),
     notes: formData.get("notes"),
   });
-  if (!parsed.success) return;
+  if (!parsed.success) {
+    return {
+      success: false,
+      message: "Please correct the form fields.",
+      errors: parsed.error.flatten().fieldErrors,
+      toastKey: Date.now(),
+    };
+  }
 
   try {
     await db.court.update({
@@ -102,28 +118,38 @@ export async function updateCourtAction(formData: FormData) {
         notes: optionalToNull(parsed.data.notes),
       },
     });
-  } catch {
-    return;
+  } catch (error) {
+    return { success: false, message: normalizePrismaError(error), toastKey: Date.now() };
   }
 
   revalidatePath("/courts");
+  return { success: true, message: "Court updated.", toastKey: Date.now() };
 }
 
-export async function deleteCourtAction(formData: FormData) {
-  if (!(await assertAdmin())) return;
+export async function deleteCourtAction(
+  prevState: CourtActionState = initialState,
+  formData: FormData,
+): Promise<CourtActionState> {
+  void prevState;
+  if (!(await assertAdmin())) {
+    return { success: false, message: "Only admin can manage courts.", toastKey: Date.now() };
+  }
 
   const parsed = deleteCourtSchema.safeParse({
     courtId: formData.get("courtId"),
   });
-  if (!parsed.success) return;
+  if (!parsed.success) {
+    return { success: false, message: "Invalid request.", toastKey: Date.now() };
+  }
 
   try {
     await db.court.delete({
       where: { id: parsed.data.courtId },
     });
-  } catch {
-    return;
+  } catch (error) {
+    return { success: false, message: normalizePrismaError(error), toastKey: Date.now() };
   }
 
   revalidatePath("/courts");
+  return { success: true, message: "Court deleted.", toastKey: Date.now() };
 }

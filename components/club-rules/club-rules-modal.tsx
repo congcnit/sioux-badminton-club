@@ -37,7 +37,7 @@ export function ClubRulesModal({ open, onOpenChange, onClose }: ClubRulesModalPr
           </AlertDialogTitle>
           <AlertDialogDescription asChild>
             <div className="sr-only">
-              Club schedule, participation rules, guest policy, and fund transfer information.
+              Club schedule, participation rules, and guest policy.
             </div>
           </AlertDialogDescription>
         </AlertDialogHeader>
