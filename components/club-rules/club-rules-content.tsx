@@ -52,7 +52,7 @@ export function ClubRulesContent() {
           <li>
             Fee:{" "}
             <span className="rounded bg-amber-100 px-1.5 py-0.5 font-medium text-amber-900 dark:bg-amber-900/40 dark:text-amber-200">
-              Male 40,000 VND · Female 20,000 VND
+              Male 35,000 VND · Female 20,000 VND
             </span>
           </li>
         </ul>
