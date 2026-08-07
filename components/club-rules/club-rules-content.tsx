@@ -10,7 +10,7 @@ export function ClubRulesContent() {
         <h2 className="mb-2 font-semibold text-base">Weekly Schedule</h2>
         <ul className="list-inside list-disc space-y-1 text-muted-foreground">
           <li>Tuesday: 6:00 AM – 8:00 AM</li>
-          <li>Saturday: 7:00 AM – 9:00 AM</li>
+          <li>Saturday: 6:00 AM – 9:00 AM</li>
         </ul>
       </section>
 
@@ -18,10 +18,10 @@ export function ClubRulesContent() {
         <h2 className="mb-2 font-semibold text-base">Participation Rules</h2>
         <ul className="list-inside list-disc space-y-1 text-muted-foreground">
           <li>
-            Checked in but did not attend without a valid reason → <strong className="text-foreground">Fine: 25,000 VND</strong>
+            Checked in but did not attend without a valid reason → <strong className="text-foreground">Fine: 20,000 VND</strong>
           </li>
           <li>
-            Arriving 15 minutes late or more without a valid reason → <strong className="text-foreground">Fine: 15,000 VND</strong>
+            Arriving 15 minutes late or more without a valid reason → <strong className="text-foreground">Fine: 10,000 VND</strong>
           </li>
           <li>
             Did not check in but still participated → Charged as guest fee (same as spouse guest fee)
@@ -41,7 +41,7 @@ export function ClubRulesContent() {
           <li>
             Fee:{" "}
             <span className="rounded bg-amber-100 px-1.5 py-0.5 font-medium text-amber-900 dark:bg-amber-900/40 dark:text-amber-200">
-              Male 25,000 VND · Female 20,000 VND
+              Male 20,000 VND · Female 10,000 VND
             </span>
           </li>
         </ul>
@@ -52,7 +52,7 @@ export function ClubRulesContent() {
           <li>
             Fee:{" "}
             <span className="rounded bg-amber-100 px-1.5 py-0.5 font-medium text-amber-900 dark:bg-amber-900/40 dark:text-amber-200">
-              Male 40,000 VND · Female 30,000 VND
+              Male 40,000 VND · Female 20,000 VND
             </span>
           </li>
         </ul>
